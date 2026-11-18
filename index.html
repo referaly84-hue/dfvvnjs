@@ -4119,14 +4119,31 @@ function paintMatch() {
         if (!list.length) return [];
         const parts = String(formation || '4-3-3').split('-').map(x => Math.max(0, Math.round(Number(x)))).filter(x => x > 0);
         const counts = [1, ...(parts.length ? parts : [4, 3, 3])];
+        let ordered = list;
+        if (list.length === 11 && typeof clientFormationSlots === 'function' && typeof clientMatchStartersToSlots === 'function') {
+          const slotList = clientFormationSlots(formation);
+          if (slotList.length === 11) {
+            const idxPool = {};
+            const idxIds = list.map((lp, idx) => {
+              const idKey = String(idx);
+              idxPool[idKey] = { pos: clientNormPos(lp.slotPos || lp.pos || 'ЦП') };
+              return idKey;
+            });
+            const matched = clientMatchStartersToSlots(slotList, idxIds, idxPool);
+            ordered = matched.map(m => {
+              const orig = list[Number(m.pid)] || list[m.idx];
+              return orig ? { ...orig, _pitchSlot: m.slotPos } : orig;
+            }).filter(Boolean);
+          }
+        }
         const rows = [];
         let cursor = 0;
         for (const c of counts) {
-          if (cursor >= list.length) break;
-          rows.push(list.slice(cursor, cursor + c));
+          if (cursor >= ordered.length) break;
+          rows.push(ordered.slice(cursor, cursor + c));
           cursor += c;
         }
-        if (cursor < list.length) rows.push(list.slice(cursor));
+        if (cursor < ordered.length) rows.push(ordered.slice(cursor));
         return reverseRows ? rows.reverse() : rows;
       };
       const buildSideData = side => {
@@ -4163,14 +4180,16 @@ function paintMatch() {
         const ratNum = getRatNum(pid, pStat);
         const rat = ratNum !== null ? ratNum.toFixed(1) : '—';
         const motm = isMotmPid(pid, pStat.n || lp.name);
-        const posLabel = lp.slotPos || lp.pos || pStat.pos || 'ИГР';
+        const natPos = lp.pos || pStat.pos || 'ИГР';
+        const posLabel = lp.slotPos || lp._pitchSlot || natPos;
         const isGk = posLabel === 'ВР' || posLabel === 'GK';
         const outM = subOutMin[pid];
         const goalsHtml = pStat.g > 0 ? `<span class="m-pitch-pill-ico" title="Голы: ${pStat.g}">⚽${pStat.g > 1 ? pStat.g : ''}</span>` : '';
         const astHtml = pStat.a > 0 ? `<span class="m-pitch-pill-ico" title="Передачи: ${pStat.a}">🎯${pStat.a > 1 ? pStat.a : ''}</span>` : '';
         const cardsHtml = `${pStat.rc > 0 ? '<span class="m-pitch-pill-ico" style="background:#dc2626;color:#fff" title="Красная карточка">🟥</span>' : (pStat.yc > 0 ? '<span class="m-pitch-pill-ico" style="background:#fef08a;color:#713f12" title="Жёлтая карточка">🟨</span>' : '')}`;
         const subBadge = outM != null ? `<span class="m-pitch-ev-br" title="Заменён на ${outM}'">🔻${outM}'</span>` : '';
-        return `<div class="m-pitch-node ${mStatsSelPid === pid ? 'sel' : ''}" data-mstats-pid="${e(pid)}" title="${e(lp.name || pStat.n)} (${e(posLabel)})">
+        const posTitle = natPos && posLabel !== natPos ? `${posLabel}, родная: ${natPos}` : posLabel;
+        return `<div class="m-pitch-node ${mStatsSelPid === pid ? 'sel' : ''}" data-mstats-pid="${e(pid)}" title="${e(lp.name || pStat.n)} (${e(posTitle)})">
           <div class="m-pitch-avatar">
             <div class="m-pitch-circle ${side} ${isGk ? 'gk' : ''}">
               <span>${e(posLabel)}</span>
@@ -4763,9 +4782,12 @@ function renderSoccerPitch11(players, coach) {
   }
 
   const gkList = players.filter(p => ['ВР', 'GK'].includes(p.pos));
-  const defList = players.filter(p => ['ЦЗ', 'ЛЗ', 'ПЗ', 'DEF', 'CB', 'LB', 'RB'].includes(p.pos));
-  const midList = players.filter(p => ['ОП', 'ЦП', 'АП', 'MID', 'DM', 'CM', 'AM'].includes(p.pos));
-  const fwdList = players.filter(p => ['ЛВ', 'ПВ', 'ЦФ', 'НАП', 'FWD', 'ST', 'LW', 'RW'].includes(p.pos));
+  const defOrder = { ЛЗ: 0, LB: 0, ЦЗ: 1, CB: 1, DEF: 1, ПЗ: 2, RB: 2 };
+  const midOrder = { ЛП: 0, ОП: 1, DM: 1, ЦП: 2, CM: 2, MID: 2, АП: 3, AM: 3, ПП: 4 };
+  const fwdOrder = { ЛВ: 0, LW: 0, ЦФ: 1, НАП: 1, ST: 1, FWD: 1, ПВ: 2, RW: 2 };
+  const defList = players.filter(p => p.pos in defOrder).sort((a, b) => (defOrder[a.pos] ?? 1) - (defOrder[b.pos] ?? 1));
+  const midList = players.filter(p => p.pos in midOrder).sort((a, b) => (midOrder[a.pos] ?? 2) - (midOrder[b.pos] ?? 2));
+  const fwdList = players.filter(p => p.pos in fwdOrder).sort((a, b) => (fwdOrder[a.pos] ?? 1) - (fwdOrder[b.pos] ?? 1));
 
   const remaining = players.filter(p => !gkList.includes(p) && !defList.includes(p) && !midList.includes(p) && !fwdList.includes(p));
   while (gkList.length < 1 && remaining.length) gkList.push(remaining.shift());
@@ -6382,7 +6404,7 @@ async function pgClub(app) {
   const cb = $('#cb');
 
   if (CT === 'squad') {
-    const gp = { ВР: 0, ЦЗ: 1, ЛЗ: 1, ПЗ: 1, ОП: 2, ЦП: 2, АП: 2, ЛВ: 3, ПВ: 3, ЦФ: 3 };
+    const gp = { ВР: 0, ЛЗ: 1, ЦЗ: 2, ПЗ: 3, ЛП: 4, ОП: 5, ЦП: 6, АП: 7, ПП: 8, ЛВ: 9, ЦФ: 10, ПВ: 11 };
     const isRpl = c.team.comp === 'rpl';
     const limit = c.legionLimit || { inSquad: 12, onPitch: 7, label: '12+7' };
     const rosterList = [...(c.roster || c.squad || [])];
@@ -8004,8 +8026,8 @@ function renderFatigueBadge(fat, available, unavailReason, opts = {}) {
 function lineupForm(box, f, c, withT, app) {
   const isAdmin = S.me?.role === 'admin';
   const L = f.lineup || c.tactic || f.auto;
-  const order = { ВР: 0, ЦЗ: 1, ЛЗ: 1, ПЗ: 1, ОП: 2, ЦП: 2, АП: 2, ЛВ: 3, ПВ: 3, ЦФ: 3 };
-  const sq = [...c.squad].sort((a, b) => order[a.pos] - order[b.pos]);
+  const order = { ВР: 0, ЛЗ: 1, ЦЗ: 2, ПЗ: 3, ЛП: 4, ОП: 5, ЦП: 6, АП: 7, ПП: 8, ЛВ: 9, ЦФ: 10, ПВ: 11 };
+  const sq = [...c.squad].sort((a, b) => (order[a.pos] ?? 6) - (order[b.pos] ?? 6));
   const isRpl = c.team.comp === 'rpl' || f.comp === 'rpl';
   const limit = c.legionLimit || { inSquad: 12, onPitch: 7, label: '12+7' };
   const fFatMap = isAdmin ? (f.fatigueByPid || {}) : {};

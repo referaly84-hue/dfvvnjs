@@ -8777,7 +8777,13 @@ function parseFormation(f) {
   return { def, mid: Math.max(0, mid), fwd };
 }
 function autoPick(avail, F, used = /* @__PURE__ */ new Set()) {
-  const need = { gk: 1, def: F.def, mid: F.mid, fwd: F.fwd }, res = [];
+  const need = {
+    gk: F.gk !== undefined ? F.gk : 1,
+    def: F.def || 0,
+    mid: F.mid || 0,
+    fwd: F.fwd || 0,
+  };
+  const res = [];
   for (const g of ["gk", "def", "mid", "fwd"]) {
     for (const p of avail) {
       if (res.length >= 11 || used.has(p.id)) continue;
@@ -8891,20 +8897,37 @@ function fixLineup(L, tid, f, allowLoan = false) {
       if (limit && isLegionnaire(g)) legCount++;
     }
   }
-  const avail = sq.filter((p) => ok.has(p.id));
+  const avail = sq.filter((p) => ok.has(p.id)).sort((a, b) => (Number(b.ovr || b.rating || 70) - Number(a.ovr || a.rating || 70)));
   if (starters.length < 11) {
-    for (const id of autoPick(avail.filter((p) => !used.has(p.id) && (!limit || legCount < limit.onPitch || !isLegionnaire(p))), { def: F.def, mid: F.mid, fwd: F.fwd }, used)) {
+    const cnt = { gk: 0, def: 0, mid: 0, fwd: 0 };
+    for (const id of starters) {
+      const g = GROUP[player(id)?.pos || ""] || "mid";
+      cnt[g] = (cnt[g] || 0) + 1;
+    }
+    const needAuto = {
+      gk: Math.max(0, 1 - cnt.gk),
+      def: Math.max(0, F.def - cnt.def),
+      mid: Math.max(0, F.mid - cnt.mid),
+      fwd: Math.max(0, F.fwd - cnt.fwd),
+    };
+    const autoPool = avail.filter((p) => !used.has(p.id) && (!limit || legCount < limit.onPitch || !isLegionnaire(p)));
+    for (const id of autoPick(autoPool, needAuto, used)) {
+      if (starters.length >= 11) break;
       starters.push(id);
       if (limit && isLegionnaire(player(id))) legCount++;
     }
   }
-  for (const p of avail) {
-    if (starters.length >= 11) break;
-    if (!used.has(p.id)) {
-      if (limit && legCount >= limit.onPitch && isLegionnaire(p)) continue;
-      starters.push(p.id);
-      used.add(p.id);
-      if (limit && isLegionnaire(p)) legCount++;
+  // Prefer outfield players when filling remaining tactical slots before ever picking a second GK
+  for (const passOutfield of [true, false]) {
+    for (const p of avail) {
+      if (starters.length >= 11) break;
+      if (passOutfield && p.pos === "\u0412\u0420") continue;
+      if (!used.has(p.id)) {
+        if (limit && legCount >= limit.onPitch && isLegionnaire(p)) continue;
+        starters.push(p.id);
+        used.add(p.id);
+        if (limit && isLegionnaire(p)) legCount++;
+      }
     }
   }
   const bench = [];
@@ -8919,12 +8942,15 @@ function fixLineup(L, tid, f, allowLoan = false) {
   const finalBench = bench.slice(0, 9);
   const fm = L.formation || "4-3-3";
   const slotResult = assignFormationSlots(fm, finalStarters, L.slots);
+  const orderedStarters = slotResult.entries.length === finalStarters.length
+    ? slotResult.entries.map((e) => e.pid)
+    : finalStarters;
   const allValidIds = new Set([...ownIds, ...loaned.map((p) => p.id)]);
   const mergedRoles = { ...normalizeRoles(db.tactics?.[tid]?.roles, allValidIds), ...normalizeRoles(L.roles, allValidIds) };
-  const plannedSubs = normalizePlannedSubs(L.plannedSubs, finalStarters, finalBench);
+  const plannedSubs = normalizePlannedSubs(L.plannedSubs, orderedStarters, finalBench);
   return {
     formation: fm,
-    starters: finalStarters,
+    starters: orderedStarters,
     bench: finalBench,
     slots: slotResult.entries.map((e) => ({ slot: e.slotPos, pid: e.pid })),
     roles: mergedRoles,
@@ -9274,6 +9300,10 @@ async function buildCtx(f) {
       }
     }
     const slotRes = assignFormationSlots(L.formation, L.starters, L.slots);
+    if (slotRes.entries.length === L.starters.length) {
+      L.starters = slotRes.entries.map((e) => e.pid);
+      L.slots = slotRes.entries.map((e) => ({ slot: e.slotPos, pid: e.pid }));
+    }
     for (const entry of slotRes.entries) {
       ctx.slotPos[entry.pid] = entry.slotPos;
       ctx.slotFit[entry.pid] = entry.fit;
@@ -13788,10 +13818,15 @@ app.get("/api/match/:id", (req, res) => {
         const L = m.ctx.lineup[s];
         if (L) {
           const canSeeTactics = isAdm || req.me?.teamId && req.me.teamId === tid;
+          const fmStr = L.formation || "4-3-3";
+          const slotRes = assignFormationSlots(fmStr, L.starters || [], L.slots);
+          const orderedIds = slotRes.entries.length === (L.starters || []).length
+            ? slotRes.entries.map((e) => e.pid)
+            : (L.starters || []);
           out.lineups[s] = {
             name: m.ctx.sides?.[s]?.name || (s === "home" ? HName : AName),
             logo: m.ctx.sides?.[s]?.logo || teamLogo(tid),
-            formation: L.formation || "4-3-3",
+            formation: fmStr,
             roles: m.ctx.roles?.[s] || L.roles || {},
             roleNames: Object.fromEntries(
               Object.entries(m.ctx.roles?.[s] || L.roles || {}).map(([k, pid]) => [k, m.ctx.names?.[pid as string] || player(pid as string)?.name || String(pid)])
@@ -13806,14 +13841,17 @@ app.get("/api/match/:id", (req, res) => {
                   conditionLabel: SUB_COND_LABELS[ps.condition] || "при любом счёте"
                 }))
               : void 0,
-            starters: (L.starters || []).map((id) => ({
-              id,
-              name: m.ctx.names?.[id] || player(id)?.name || "Игрок",
-              pos: m.ctx.pos?.[id] || player(id)?.pos || "",
-              slotPos: m.ctx.slotPos?.[id] || void 0,
-              fitSeverity: m.ctx.slotFit?.[id]?.severity || void 0,
-              loan: m.ctx.loan?.[id] || void 0
-            })),
+            starters: orderedIds.map((id) => {
+              const fit = slotRes.byPid[id];
+              return {
+                id,
+                name: m.ctx.names?.[id] || player(id)?.name || "Игрок",
+                pos: m.ctx.pos?.[id] || player(id)?.pos || "",
+                slotPos: m.ctx.slotPos?.[id] || fit?.slotPos || void 0,
+                fitSeverity: m.ctx.slotFit?.[id]?.severity || fit?.fit?.severity || void 0,
+                loan: m.ctx.loan?.[id] || void 0
+              };
+            }),
             bench: (L.bench || []).map((id) => ({ id, name: m.ctx.names?.[id] || player(id)?.name || "Игрок", pos: m.ctx.pos?.[id] || player(id)?.pos || "", loan: m.ctx.loan?.[id] || void 0 }))
           };
         }
@@ -13869,6 +13907,9 @@ app.get("/api/match/:id", (req, res) => {
       const L = getLineup(f, tid);
       const canSeeTactics = isAdm || req.me?.teamId && req.me.teamId === tid;
       const slotRes = assignFormationSlots(L.formation || "4-3-3", L.starters || [], L.slots);
+      const orderedIds = slotRes.entries.length === (L.starters || []).length
+        ? slotRes.entries.map((e) => e.pid)
+        : (L.starters || []);
       const rolesObj = normalizeRoles(L.roles || db.tactics[tid]?.roles);
       out.lineups[s] = {
         name: tm ? tm.name : tn(tid),
@@ -13880,7 +13921,7 @@ app.get("/api/match/:id", (req, res) => {
         ),
         speech: canSeeTactics ? L.speech || "(\u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430 \u043D\u0435 \u0437\u0430\u043F\u043E\u043B\u043D\u0435\u043D\u0430)" : void 0,
         training: canSeeTactics ? L.training || "" : void 0,
-        starters: (L.starters || []).map((id) => {
+        starters: orderedIds.map((id) => {
           const p = player(id);
           const fit = slotRes.byPid[id];
           return {
@@ -16744,11 +16785,12 @@ app.post("/api/club/lineup", needClub, (req, res) => {
   const fm = /^\d(-\d){1,3}$/.test(req.body.formation || "") ? req.body.formation : "4-3-3";
   const bench = benchIds0;
   const slotRes = assignFormationSlots(fm, st, req.body.slots);
+  const orderedSt = slotRes.entries.length === st.length ? slotRes.entries.map((e) => e.pid) : st;
   const roles = normalizeRoles(req.body.roles, sq);
-  const plannedSubs = normalizePlannedSubs(req.body.plannedSubs, st, bench);
+  const plannedSubs = normalizePlannedSubs(req.body.plannedSubs, orderedSt, bench);
   const L = {
     formation: fm,
-    starters: st,
+    starters: orderedSt,
     bench,
     slots: slotRes.entries.map((e) => ({ slot: e.slotPos, pid: e.pid })),
     roles,
