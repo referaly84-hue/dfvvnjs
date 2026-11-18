@@ -1212,7 +1212,7 @@ function modal(html, mount) {
   m.innerHTML = '<div>' + html + '</div>';
   m.addEventListener('mousedown', ev => { if (ev.target === m) m.remove(); });
   document.body.append(m);
-  mount && mount(m);
+  mount && mount(m, () => m.remove());
   return m;
 }
 

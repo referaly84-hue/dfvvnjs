@@ -787,10 +787,13 @@ export async function runAdsgramBlock(
     let remaining = previewSec;
     let clickedAd = false;
 
+    let observer: MutationObserver | null = null;
+
     const finishResolve = (val: { adProof: string; blockKey: string; clicked: boolean } | null) => {
       if (resolved) return;
       resolved = true;
       if (timerId) clearInterval(timerId);
+      if (observer) observer.disconnect();
       resolve(val);
     };
 
@@ -829,6 +832,7 @@ export async function runAdsgramBlock(
     `;
 
     modal(html, (el, close) => {
+      const closeModal = typeof close === 'function' ? close : () => el.remove();
       const timerBadge = el.querySelector('#ad_timer_badge') as HTMLElement;
       const progBar = el.querySelector('#ad_prog_bar') as HTMLElement;
       const doneBtn = el.querySelector('#ad_done_btn') as HTMLButtonElement;
@@ -885,7 +889,7 @@ export async function runAdsgramBlock(
       }, 1000);
 
       cancelBtn.onclick = () => {
-        close();
+        closeModal();
         finishResolve(null);
       };
 
@@ -898,7 +902,7 @@ export async function runAdsgramBlock(
             clicked: clickedAd,
             sdkCompleted: false,
           });
-          close();
+          closeModal();
           finishResolve({ adProof: completed.adProof, blockKey, clicked: !!completed.clicked });
         } catch (err: any) {
           toast(err?.message || 'Ошибка подтверждения рекламы', true);
@@ -907,9 +911,8 @@ export async function runAdsgramBlock(
         }
       };
 
-      const observer = new MutationObserver(() => {
+      observer = new MutationObserver(() => {
         if (!document.body.contains(el)) {
-          observer.disconnect();
           finishResolve(null);
         }
       });
