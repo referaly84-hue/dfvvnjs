@@ -202,9 +202,33 @@ const FRIENDLY_BREAK_LIMIT = 9;
 const STARTER_COINS = 5;
 
 const SEASON_PRIZES = [
-  { place: 1, label: '1 место', prizeEur: 5_000_000, prizeCoins: 50, badge: '🥇 Золото Лиги прогнозов' },
-  { place: 2, label: '2 место', prizeEur: 3_000_000, prizeCoins: 30, badge: '🥈 Серебро Лиги прогнозов' },
-  { place: 3, label: '3 место', prizeEur: 1_500_000, prizeCoins: 15, badge: '🥉 Бронза Лиги прогнозов' },
+  {
+    place: 1,
+    label: '1 место',
+    prizeEur: 1_250_000,
+    prizeCoins: 10,
+    hasCup: true,
+    cupTitle: 'Кубок победителя Лиги прогнозов',
+    badge: '🏆 Кубок победителя Лиги прогнозов',
+  },
+  {
+    place: 2,
+    label: '2 место',
+    prizeEur: 500_000,
+    prizeCoins: 5,
+    hasCup: false,
+    cupTitle: '',
+    badge: '🥈 2 место Лиги прогнозов',
+  },
+  {
+    place: 3,
+    label: '3 место',
+    prizeEur: 250_000,
+    prizeCoins: 3,
+    hasCup: false,
+    cupTitle: '',
+    badge: '🥉 3 место Лиги прогнозов',
+  },
 ];
 
 export interface AdServerContext {
@@ -1161,6 +1185,9 @@ export function computePredictionLeaderboard(ctx: AdServerContext, season: strin
     const t = tid ? ctx.team(tid) : null;
     const favT = prof.favoriteTeamId ? ctx.team(prof.favoriteTeamId) : null;
     const profileKind = prof.profileKind || (actorKey.startsWith('club:') ? 'owner' : actorKey.startsWith('admin:') ? 'admin' : 'spectator');
+    const cupCount = (Array.isArray(db.predictionSeasonAwards) ? db.predictionSeasonAwards : []).filter((aw: any) =>
+      Array.isArray(aw?.winners) && aw.winners.some((w: any) => w.actorKey === actorKey && (w.hasCup || w.place === 1))
+    ).length;
     const entry = {
       actorKey,
       profileKind,
@@ -1171,6 +1198,7 @@ export function computePredictionLeaderboard(ctx: AdServerContext, season: strin
       teamName: t?.name || null,
       teamLogo: tid ? ctx.teamLogo(tid) : null,
       favoriteTeamName: favT?.name || null,
+      cups: cupCount,
       correct: 0,
       wrong: 0,
       pending: 0,
@@ -1257,6 +1285,16 @@ export function awardSeasonPredictionPrizes(ctx: AdServerContext, season?: strin
       if (t) {
         t.budget = Number(t.budget || 0) + prize.prizeEur;
         awardedEur = prize.prizeEur;
+        if (prize.hasCup) {
+          t.predictionCups ||= [];
+          t.predictionCups.unshift({
+            id: 'pcup_' + ctx.uid(),
+            season: targetSeason,
+            title: prize.cupTitle,
+            winnerName: row.displayName,
+            date: nowIso.slice(0, 10),
+          });
+        }
         db.budgetHistory ||= [];
         db.budgetHistory.push({
           id: 'bh_' + ctx.uid(),
@@ -1264,7 +1302,7 @@ export function awardSeasonPredictionPrizes(ctx: AdServerContext, season?: strin
           amount: prize.prizeEur,
           type: 'prediction_prize',
           typeLabel: 'Приз Лиги прогнозов',
-          description: `${prize.badge} (Сезон ${targetSeason}): +€${prize.prizeEur.toLocaleString('ru-RU')}`,
+          description: `${prize.badge} (Сезон ${targetSeason}): +€${prize.prizeEur.toLocaleString('ru-RU')}, +${prize.prizeCoins} мон.${prize.hasCup ? ' + Кубок победителя' : ''}`,
           date: nowIso,
         });
       }
@@ -1275,13 +1313,15 @@ export function awardSeasonPredictionPrizes(ctx: AdServerContext, season?: strin
     prof.trophies.unshift({
       id: 'tr_' + ctx.uid(),
       title: `${prize.badge} — Сезон ${targetSeason}`,
-      detail: `Очки: ${row.points} · Угадано: ${row.correct}/${row.total} · КПД: ${row.kpd}%`,
+      detail: `Очки: ${row.points} · Угадано: ${row.correct}/${row.total} · КПД: ${row.kpd}%${prize.hasCup ? ' · Награда: Кубок победителя' : ''}`,
       date: nowIso.slice(0, 10),
     });
 
     winners.push({
       place: prize.place,
       badge: prize.badge,
+      hasCup: !!prize.hasCup,
+      cupTitle: prize.cupTitle || '',
       actorKey: row.actorKey,
       displayName: row.displayName,
       teamId: row.teamId,

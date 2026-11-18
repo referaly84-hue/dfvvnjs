@@ -109,19 +109,50 @@ function ensureExtStyles() {
       flex-shrink:0;
     }
     .pred-ads-panel{
-      background:#ffffff;
-      border:1px solid #d2dfd6;
-      border-radius:12px;
-      padding:12px 14px;
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(180deg,#ffffff 0%,#f2f8f4 100%);
+      border:1px solid #c3d8cb;
+      border-top:3px solid #166534;
+      border-radius:14px;
+      padding:14px 16px;
       margin-bottom:14px;
+      box-shadow:0 4px 16px rgba(13,47,33,0.05);
     }
     .pred-ads-head{
       display:flex;
-      align-items:baseline;
+      align-items:center;
       justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
-      margin-bottom:10px;
+      margin-bottom:12px;
+    }
+    .pred-ads-title-wrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .pred-ads-title-ico{
+      width:30px;
+      height:30px;
+      border-radius:8px;
+      background:#0d2f21;
+      color:#f0c419;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      border:1px solid #1f5c3f;
+    }
+    .pred-ads-title{
+      font:700 14.5px Unbounded,Onest,sans-serif;
+      color:#0d2f21;
+      letter-spacing:-0.01em;
+    }
+    .pred-ads-sub{
+      font-size:12px;
+      color:#536b5d;
+      margin-top:1px;
     }
     .pred-ads-grid{
       display:grid;
@@ -134,58 +165,162 @@ function ensureExtStyles() {
       position:relative;
       overflow:hidden;
       display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:10px;
+      width:100%;
+      min-height:88px;
+      text-align:left;
+      background:linear-gradient(160deg,#ffffff 0%,#f3f9f5 100%);
+      color:#10261c;
+      border:1.5px solid #c6dacd;
+      border-radius:12px;
+      padding:12px 13px 11px;
+      cursor:pointer;
+      transition:border-color .16s ease,background .16s ease,transform .14s ease,box-shadow .16s ease;
+    }
+    .coin-offer-btn::after{
+      content:'';
+      position:absolute;
+      right:-22px;
+      bottom:-22px;
+      width:74px;
+      height:74px;
+      border-radius:50%;
+      border:2px solid rgba(22,101,52,0.08);
+      pointer-events:none;
+    }
+    .coin-offer-btn.featured{
+      background:linear-gradient(155deg,#0d2f21 0%,#144530 100%);
+      border-color:#1e5f43;
+      color:#ffffff;
+    }
+    .coin-offer-btn.featured::after{
+      border-color:rgba(240,196,25,0.14);
+    }
+    .coin-offer-btn:hover:not(:disabled){
+      border-color:#15803d;
+      background:linear-gradient(160deg,#ffffff 0%,#e9f6ee 100%);
+      transform:translateY(-2px);
+      box-shadow:0 6px 16px rgba(13,47,33,0.09);
+    }
+    .coin-offer-btn.featured:hover:not(:disabled){
+      border-color:#f0c419;
+      background:linear-gradient(155deg,#103828 0%,#195239 100%);
+      box-shadow:0 8px 18px rgba(13,47,33,0.18);
+    }
+    .coin-offer-btn:disabled{
+      opacity:.56;
+      cursor:not-allowed;
+    }
+    .coin-offer-top{
+      position:relative;
+      z-index:1;
+      display:flex;
       align-items:center;
       justify-content:space-between;
       gap:10px;
       width:100%;
-      min-height:54px;
-      text-align:left;
-      background:#f8fbf9;
-      color:#10261c;
-      border:1px solid #cfdcd3;
+    }
+    .coin-offer-left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex:1;
+    }
+    .coin-offer-ico{
+      width:38px;
+      height:38px;
       border-radius:10px;
-      padding:10px 13px 13px;
-      cursor:pointer;
-      transition:border-color .15s ease,background .15s ease,transform .12s ease;
+      background:#0d2f21;
+      color:#f0c419;
+      border:1px solid #1e5b3f;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
     }
-    .coin-offer-btn:hover:not(:disabled){
-      border-color:#1b5c3f;
-      background:#eff8f2;
-      transform:translateY(-1px);
-    }
-    .coin-offer-btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
+    .coin-offer-btn.featured .coin-offer-ico{
+      background:rgba(240,196,25,0.15);
+      border-color:rgba(240,196,25,0.38);
+      color:#f0c419;
     }
     .coin-offer-name{
-      font:600 13.5px Onest,system-ui,sans-serif;
+      font:700 13.5px Onest,system-ui,sans-serif;
       color:#0d2f21;
       line-height:1.25;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .coin-offer-btn.featured .coin-offer-name{
+      color:#ffffff;
     }
     .coin-offer-meta{
-      font-size:12px;
-      color:#5b7064;
+      font-size:11.5px;
+      color:#556e60;
       margin-top:2px;
       font-variant-numeric:tabular-nums;
     }
+    .coin-offer-btn.featured .coin-offer-meta{
+      color:#c3ddd0;
+    }
     .coin-offer-reward{
-      font:700 14px Unbounded,sans-serif;
-      color:#15803d;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:6px 10px;
+      border-radius:9px;
+      background:#0d2f21;
+      color:#f0c419;
+      font:700 13px Unbounded,sans-serif;
       white-space:nowrap;
       flex-shrink:0;
       font-variant-numeric:tabular-nums;
+      border:1px solid #1c553b;
+    }
+    .coin-offer-btn.featured .coin-offer-reward{
+      background:#f0c419;
+      color:#0d2f21;
+      border-color:#ffd747;
+    }
+    .coin-offer-foot{
+      position:relative;
+      z-index:1;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      width:100%;
     }
     .coin-offer-track{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:3px;
-      background:#e2ebe5;
+      flex:1;
+      height:6px;
+      border-radius:99px;
+      background:#dfebe3;
+      overflow:hidden;
+    }
+    .coin-offer-btn.featured .coin-offer-track{
+      background:rgba(255,255,255,0.16);
     }
     .coin-offer-fill{
       height:100%;
-      background:#1b5c3f;
+      border-radius:99px;
+      background:linear-gradient(90deg,#166534 0%,#22c55e 100%);
+      transition:width .25s ease;
+    }
+    .coin-offer-btn.featured .coin-offer-fill{
+      background:linear-gradient(90deg,#eab308 0%,#fde047 100%);
+    }
+    .coin-offer-count{
+      font-size:11px;
+      font-weight:700;
+      color:#4b6456;
+      white-space:nowrap;
+      font-variant-numeric:tabular-nums;
+    }
+    .coin-offer-btn.featured .coin-offer-count{
+      color:#d5eae0;
     }
     .pred-toolbar{
       display:flex;
@@ -1272,7 +1407,7 @@ export async function renderPredictionsPage(app: HTMLElement) {
                           ? `<img src="${e(r.teamLogo)}" alt="" style="width:30px;height:30px;object-fit:contain;flex-shrink:0">`
                           : `<div style="width:34px;height:34px;border-radius:50%;background:var(--deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${e((r.displayName || 'У').slice(0, 1).toUpperCase())}</div>`}
                       <div>
-                        <div style="font-weight:600">${e(r.displayName)}${isMe ? ' (вы)' : ''}</div>
+                        <div style="font-weight:600">${e(r.displayName)}${isMe ? ' (вы)' : ''}${r.cups > 0 ? ` <span title="Кубок победителя Лиги прогнозов" style="margin-left:4px">🏆${r.cups > 1 ? '×' + r.cups : ''}</span>` : ''}</div>
                         <div class="small muted">${e(subText)}</div>
                       </div>
                     </div>
@@ -1331,7 +1466,7 @@ export async function renderPredictionsPage(app: HTMLElement) {
       <div style="min-width:220px;flex:1">
         <h1 class="pred-hero-title">Прогноз на тур</h1>
         <div class="pred-hero-sub">
-          Сезон ${e(data.season)} · Призы Топ-3: 1 место €5M + 50 мон. · 2 место €3M + 30 мон. · 3 место €1.5M + 15 мон.
+          Сезон ${e(data.season)} · Призы Топ-3: 1 место — €1 250 000 + 10 мон. + 🏆 Кубок победителя · 2 место — €500 000 + 5 мон. · 3 место — €250 000 + 3 мон.
         </div>
       </div>
       <div class="pred-hero-right">
@@ -1352,21 +1487,56 @@ export async function renderPredictionsPage(app: HTMLElement) {
 
     <div class="pred-ads-panel">
       <div class="pred-ads-head">
-        <span style="font-weight:700;font-size:14px;color:#0d2f21">Пополнить баланс монет за рекламу (Adsgram)</span>
-        <span class="small muted">На старте даётся 5 монет · Выберите любой блок</span>
+        <div class="pred-ads-title-wrap">
+          <span class="pred-ads-title-ico" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9.5"/>
+              <polygon points="12,7.5 16,10.4 14.5,15 9.5,15 8,10.4"/>
+              <line x1="12" y1="2.5" x2="12" y2="7.5"/>
+              <line x1="21" y1="9.2" x2="16" y2="10.4"/>
+              <line x1="17.8" y1="19.5" x2="14.5" y2="15"/>
+              <line x1="6.2" y1="19.5" x2="9.5" y2="15"/>
+              <line x1="3" y1="9.2" x2="8" y2="10.4"/>
+            </svg>
+          </span>
+          <div>
+            <div class="pred-ads-title">Игровая касса прогнозов</div>
+            <div class="pred-ads-sub">5 монет даётся на старте · Смотрите трансляции Adsgram и получайте монеты на ставки</div>
+          </div>
+        </div>
+        <span class="small muted" style="font-weight:600;font-variant-numeric:tabular-nums">Лимит: 30 / блок за 24ч</span>
       </div>
       <div class="pred-ads-grid">
         ${data.coinOffers.map((o: any) => {
           const pct = Math.min(100, Math.round((Number(o.views || 0) / Number(o.maxViews || 30)) * 100));
           const maxed = Number(o.views || 0) >= Number(o.maxViews || 30);
+          const isFeatured = o.blockKey === 'coins_long';
+          const footMeta = o.blockKey === 'coins_short'
+            ? { title: 'Быстрый пас', sub: 'Короткий ролик · 5 сек' }
+            : o.blockKey === 'coins_banner'
+              ? { title: 'Щит у поля', sub: 'Баннер матча · бровка' }
+              : { title: 'Перерыв матча', sub: 'Полный ролик · 30 сек' };
+          const iconSvg = o.blockKey === 'coins_short'
+            ? `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/><path d="M12 2v3"/></svg>`
+            : o.blockKey === 'coins_banner'
+              ? `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><line x1="12" y1="5" x2="12" y2="19"/><circle cx="12" cy="12" r="2.6"/><path d="M2.5 9.2h2.8v5.6H2.5"/><path d="M21.5 9.2h-2.8v5.6h2.8"/></svg>`
+              : `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
           return `
-          <button type="button" class="coin-offer-btn" data-earn-coins="${e(o.blockKey)}" ${maxed ? 'disabled' : ''}>
-            <div style="min-width:0">
-              <div class="coin-offer-name">${e(o.label)}</div>
-              <div class="coin-offer-meta">${e(o.durationHint)} · ${o.views}/${o.maxViews}</div>
+          <button type="button" class="coin-offer-btn${isFeatured ? ' featured' : ''}" data-earn-coins="${e(o.blockKey)}" ${maxed ? 'disabled' : ''}>
+            <div class="coin-offer-top">
+              <div class="coin-offer-left">
+                <span class="coin-offer-ico" aria-hidden="true">${iconSvg}</span>
+                <div style="min-width:0">
+                  <div class="coin-offer-name">${e(footMeta.title)}</div>
+                  <div class="coin-offer-meta">${e(footMeta.sub)}</div>
+                </div>
+              </div>
+              <span class="coin-offer-reward">${maxed ? 'Лимит' : `+${o.rewardCoins} мон.`}</span>
             </div>
-            <span class="coin-offer-reward">${maxed ? 'Лимит' : `+${o.rewardCoins} мон.`}</span>
-            <div class="coin-offer-track"><div class="coin-offer-fill" style="width:${pct}%"></div></div>
+            <div class="coin-offer-foot">
+              <div class="coin-offer-track"><div class="coin-offer-fill" style="width:${pct}%"></div></div>
+              <span class="coin-offer-count">${o.views}/${o.maxViews}</span>
+            </div>
           </button>`;
         }).join('')}
       </div>
@@ -1850,7 +2020,7 @@ export function renderAdminAdsSettingsHtml(ov: any, e: (s: any) => string): stri
         `).join('')}
       </div>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div class="small muted">Наградить Топ-3 Лиги прогнозов по итогам текущего сезона (€5M / €3M / €1.5M + монеты)</div>
+        <div class="small muted">Наградить Топ-3 Лиги прогнозов по итогам текущего сезона (€1 250 000 + 10 мон. + Кубок / €500 000 + 5 мон. / €250 000 + 3 мон.)</div>
         <button type="button" class="btn alt sm" id="btn_award_pred_season">Выдать призы Лиги прогнозов</button>
       </div>
     </div>
