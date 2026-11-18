@@ -4,7 +4,7 @@ import crypto from 'crypto';
 export interface AdsgramBlockDef {
   key: string;
   label: string;
-  category: 'sponsors' | 'friendly' | 'predictions' | 'national';
+  category: 'sponsors' | 'friendly' | 'predictions' | 'national' | 'interview';
   format: 'long' | 'short' | 'banner' | 'click_long';
   durationSec: number;
   requiresClick: boolean;
@@ -142,6 +142,16 @@ export const ADSGRAM_BLOCKS: AdsgramBlockDef[] = [
     requiresClick: false,
     defaultBlockId: 'int-nt-vote-opp',
     maxPerCycle: 30,
+  },
+  {
+    key: 'interview_ask',
+    label: 'Интервью после матча — Задать вопрос игроку',
+    category: 'interview',
+    format: 'short',
+    durationSec: 5,
+    requiresClick: false,
+    defaultBlockId: 'int-interview-ask',
+    maxPerCycle: 50,
   },
 ];
 

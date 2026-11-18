@@ -275,6 +275,7 @@ import {
   resolveActor,
   scoreNationalCandidateWithVotes,
   settlePredictionsForFixture,
+  verifyAndConsumeAdProof,
   type AdServerContext,
 } from "./server_ads_predictions.ts";
 
@@ -837,6 +838,224 @@ function computeMatchRatings(match, fixture, homeName, awayName) {
   );
   return ratings;
 }
+function stripOuterQuotes(s: string): string {
+  let out = String(s || "").trim();
+  for (let i = 0; i < 3; i++) {
+    out = out.replace(/^[«"'„“]+|[»"'”]+$/g, "").trim();
+  }
+  return out;
+}
+function hashStrSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+function pickBySeed<T>(arr: T[], seed: number, offset = 0): T {
+  return arr[(seed + offset) % arr.length];
+}
+function buildDynamicMotmInterview(f: any, best: any, homeName: string, awayName: string, coachHome: any, coachAway: any, match?: any) {
+  const hg = Number(f?.hg ?? match?.stats?.teams?.home?.g ?? 0);
+  const ag = Number(f?.ag ?? match?.stats?.teams?.away?.g ?? 0);
+  const pTid = best?.teamId || f?.home;
+  const isHome = pTid === f?.home || best?.side === "home";
+  const myTeam = best?.teamName || best?.team || (isHome ? homeName : awayName);
+  const oppTeam = isHome ? awayName : homeName;
+  const gf = isHome ? hg : ag;
+  const ga = isHome ? ag : hg;
+  const diff = gf - ga;
+  const seed = hashStrSeed(`${f?.id || ""}_${best?.playerId || best?.pid || best?.name || ""}_${hg}_${ag}`);
+  const sideCoach = isHome ? coachHome : coachAway;
+  const coachName = sideCoach?.name || "";
+  const goals = Number(best?.goals || 0);
+  const assists = Number(best?.assists || 0);
+  const saves = Number(best?.saves || 0);
+  const tackles = Number(best?.tackles || 0);
+  const pos = String(best?.pos || "ЦП");
+  const scoreStr = `${homeName} ${hg}:${ag} ${awayName}`;
+
+  let personalPart = "";
+  if (goals >= 3) {
+    personalPart = pickBySeed([
+      `Хет-трик против «${oppTeam}» — особенный вечер, но без передач партнёров этих голов бы не было.`,
+      `Когда залетает три мяча за матч, чувствуешь невероятный кураж, но главное — общий результат команды.`
+    ], seed, 1);
+  } else if (goals === 2) {
+    personalPart = pickBySeed([
+      `Рад, что удалось оформить дубль в такой непростой встрече с «${oppTeam}».`,
+      `Два мяча принесли большую пользу, хотя соперник заставил выложиться на максимум.`
+    ], seed, 2);
+  } else if (goals === 1 && assists >= 1) {
+    personalPart = pickBySeed([
+      `Приятно отличиться и голом, и результативной передачей — сегодня всё складывалось в атаке.`,
+      `Удалось поучаствовать сразу в двух голевых эпизодах, партнёры вовремя открывались под пас.`
+    ], seed, 3);
+  } else if (goals === 1) {
+    personalPart = pickBySeed([
+      `Здорово, что нашёл свой момент у ворот «${oppTeam}» и не промахнулся.`,
+      `Мой гол стал результатом хорошей командной комбинации, оставалось лишь точно завершить.`
+    ], seed, 4);
+  } else if (assists >= 1) {
+    personalPart = pickBySeed([
+      `Старался снабжать нападающих острыми передачами, и одна из них помогла вскрыть оборону «${oppTeam}».`,
+      `Ассисты — моя работа в центре и на флангах, сегодня ребята отлично откликались на пасы.`
+    ], seed, 5);
+  } else if (pos === "ВР" && saves >= 3) {
+    personalPart = pickBySeed([
+      `Работы в рамке хватало (${saves} сейвов), защитники помогали на подборах и не давали добивать.`,
+      `В паре эпизодов «${oppTeam}» бил практически в упор, пришлось включать реакцию на ленточке.`
+    ], seed, 6);
+  } else if (tackles >= 3) {
+    personalPart = pickBySeed([
+      `В центре поля и у своей штрафной сегодня шла настоящая рубка — рад, что выиграл ключевые стыки.`,
+      `Пришлось много отрабатывать в отборе (${tackles}), чтобы перекрыть воздух атаке «${oppTeam}».`
+    ], seed, 7);
+  } else {
+    personalPart = pickBySeed([
+      `Старался держать темп все 90 минут и помогать партнёрам в переходах из обороны в атаку.`,
+      `Сегодня каждый в «${myTeam}» выложился на сто процентов ради общего результата.`
+    ], seed, 8);
+  }
+
+  let resultPart = "";
+  if (diff >= 3) {
+    resultPart = pickBySeed([
+      `Уверенная победа (${scoreStr}) показала, что мы здорово поработали на неделе и реализовали свои шансы.`,
+      `Счёт ${hg}:${ag} говорит сам за себя — мы доминировали и дожали «${oppTeam}» за счёт темпа.`
+    ], seed, 9);
+  } else if (diff > 0) {
+    resultPart = pickBySeed([
+      `Победа над «${oppTeam}» (${scoreStr}) далась через характер — концовка получилась максимально нервной.`,
+      `Забираем важные очки в матче ${scoreStr}: терпели в нужные минуты и довели встречу до победы.`
+    ], seed, 10);
+  } else if (diff === 0 && hg === 0) {
+    resultPart = pickBySeed([
+      `Матч ${scoreStr} превратился в тактическую шахматную партию — оборона сегодня переиграла атаку с обеих сторон.`,
+      `Нулевая ничья с «${oppTeam}»: моменты были, но не хватило последнего точного удара. Двигаемся дальше.`
+    ], seed, 11);
+  } else if (diff === 0) {
+    resultPart = pickBySeed([
+      `Ничья ${scoreStr} — боевой результат: и мы, и «${oppTeam}» имели шансы склонить чашу весов в свою пользу.`,
+      `В игре ${scoreStr} было много эмоций и голов, хотя, конечно, хотелось забрать все три очка.`
+    ], seed, 12);
+  } else {
+    resultPart = pickBySeed([
+      `Обидно уступать в такой встрече (${scoreStr}), даже несмотря на хорошую индивидуальную статистику.`,
+      `Результат ${scoreStr} нас не устраивает — сделаем выводы после разбора ошибок и вернёмся сильнее.`
+    ], seed, 13);
+  }
+
+  let tacticsComment = "";
+  if (diff > 0) {
+    tacticsComment = coachName
+      ? pickBySeed([
+          `План ${coachName} сработал: мы грамотно вскрывали фланги «${oppTeam}» и не теряли компактность при потере мяча.`,
+          `${coachName} ещё в раздевалке предупреждал о сильных сторонах «${oppTeam}» — мы выполнили установку и заслуженно победили.`
+        ], seed, 14)
+      : `Мы чётко выполнили установку тренерского штаба: грамотный прессинг и быстрые переходы принесли победу.`;
+  } else if (diff === 0) {
+    tacticsComment = coachName
+      ? pickBySeed([
+          `${coachName} требовал от нас плотной игры между линиями. Против «${oppTeam}» местами это работало отлично, но в завершении не хватило чуть точности.`,
+          `По рисунку игры мы придерживались схемы ${coachName}, контролировали важные зоны, хотя ничейный счёт ${hg}:${ag} оставляет лёгкую недосказанность.`
+        ], seed, 15)
+      : `Тренер просил действовать дисциплинированно и искать пространство за спинами защитников — в целом план сработал на ничью.`;
+  } else {
+    tacticsComment = coachName
+      ? pickBySeed([
+          `${coachName} настроил нас на агрессивный футбол, но несколько собственных ошибок помешали реализовать задуманное против «${oppTeam}».`,
+          `В перерыве ${coachName} внёс коррективы по позициям, мы добавили в движении, но отыграться полностью не успели.`
+        ], seed, 16)
+      : `Несмотря на установку штаба, допустили пару позиционных оплошностей — будем разбирать их на теоретическом занятии.`;
+  }
+
+  return {
+    quote: `${resultPart} ${personalPart}`,
+    tacticsComment
+  };
+}
+function isLegacyCannedInterview(q: string, t: string): boolean {
+  const txt = `${q || ""} ${t || ""}`;
+  return /Мы настраивались на тяжёлую борьбу в матче против серьёзного соперника|Мы готовились к трудному матчу, соперник оказал серьезное сопротивление|Матч получился напряжённым, но мы держали концентрацию|Установка .+ сработала: мы действовали компактно и знали, как использовать слабые зоны соперника|Установка тренера была предельно ясной: надёжность сзади/.test(txt);
+}
+function buildContextualInterviewAnswer(question: string, f: any, motm: any, HName: string, AName: string, match: any, sideCoach: any): string {
+  const q = question.toLowerCase();
+  const hg = Number(f?.hg ?? match?.stats?.teams?.home?.g ?? 0);
+  const ag = Number(f?.ag ?? match?.stats?.teams?.away?.g ?? 0);
+  const isHome = (motm.teamId && motm.teamId === f.home) || motm.teamName === HName;
+  const myTeam = motm.teamName || (isHome ? HName : AName);
+  const oppTeam = isHome ? AName : HName;
+  const gf = isHome ? hg : ag;
+  const ga = isHome ? ag : hg;
+  const diff = gf - ga;
+  const coachName = sideCoach?.name || "наш главный тренер";
+  const goals = Number(motm.goals || 0);
+  const assists = Number(motm.assists || 0);
+  const saves = Number(motm.saves || 0);
+  const tackles = Number(motm.tackles || 0);
+  const rating = motm.rating || "7.5";
+  const evs: any[] = Array.isArray(match?.events) ? match.events : [];
+  const cardsCount = evs.filter((ev) => ev.type === "yellow" || ev.type === "red").length;
+  const penCount = evs.filter((ev) => ev.type === "penalty").length;
+  const seed = hashStrSeed(`${f.id}_${question}_${motm.name}`);
+
+  if (/забив|гол|удар|момент|реализ|атак|дубл|хет|хет-трик|мяч|пробил/.test(q)) {
+    if (goals > 0) {
+      return pickBySeed([
+        `Против «${oppTeam}» пространства в штрафной было немного, поэтому приходилось решать эпизод в одно-два касания. Когда появился коридор, просто пробил без лишних раздумий — рад, что мяч зашёл и помог в игре ${HName} ${hg}:${ag} ${AName}.`,
+        `В таком плотном матче (${hg}:${ag}) каждый полумомент на вес золота. Партнёры здорово вывели меня на ударную позицию, а дальше сработала наработка с тренировок — бить низом в угол.`
+      ], seed);
+    }
+    if (assists > 0) {
+      return `Сегодня важнее было не самому тянуть одеяло, а вовремя отдать последний пас. В матче против «${oppTeam}» (${hg}:${ag}) защитники стягивались на меня, и это освобождало зоны для наших нападающих.`;
+    }
+    return diff >= 0
+      ? `Даже когда сам не отличаюсь забитым мячом, стараюсь создавать остроту и стягивать защитников «${oppTeam}» — в игре ${HName} ${hg}:${ag} ${AName} у нас было достаточно подходов к воротам.`
+      : `Сегодня у нас действительно хромала реализация в завершающей фазе против «${oppTeam}». Моменты создавали, но вратарь и защитники соперника перекрыли ключевые линии удара.`;
+  }
+
+  if (/тренер|установ|схем|тактик|замен|перерыв|раздевал/.test(q)) {
+    return diff > 0
+      ? `${coachName} ещё до стартового свистка сделал акцент на контроле центра и быстрых флангах против «${oppTeam}». Мы чётко перестраивались при потерях мяча, и после перерыва свежие замены дожали соперника (${hg}:${ag}).`
+      : diff === 0
+        ? `В перерыве ${coachName} попросил добавить агрессии в отборе и быстрее двигать мяч между линиями. Против «${oppTeam}» это позволило выровнять игру (${hg}:${ag}), хотя чуть не хватило на концовку.`
+        : `${coachName} предупреждал нас о контратаках «${oppTeam}», но в паре моментов мы потеряли концентрацию. В перерыве получили жёсткий разбор и постарались перевернуть матч, но счёт ${hg}:${ag} уже не спасли.`;
+  }
+
+  if (/суд|арбитр|вар|var|пенальт|карточ|фол|удален|свист/.test(q)) {
+    return penCount > 0 || cardsCount >= 4
+      ? `Градус борьбы в матче с «${oppTeam}» зашкаливал (${cardsCount} карточек), накал чувствовался в каждом стыке. Судья держал игру в жёстких рамках, а нам оставалось не поддаваться эмоциям и играть до свистка.`
+      : `Работа арбитра не должна отвлекать нас от футбола — матч ${HName} ${hg}:${ag} ${AName} прошёл в честной мужской борьбе, все спорные эпизоды оставались в рамках правил.`;
+  }
+
+  if (/болельщ|трибун|фанат|поддерж|атмосфер|стадион|дерби/.test(q)) {
+    return `Атмосфера на стадионе сегодня заряжала с первой минуты — в игре против «${oppTeam}» трибуны гнали нас вперёд до последнего. После такого матча хочется поблагодарить каждого болельщика за поддержку!`;
+  }
+
+  if (/оцен|форм|лучш|игрок|сам|довол|устал|физич|сейв|вратар|защит/.test(q)) {
+    if (motm.pos === "ВР" || saves > 0) {
+      return `Моя задача — сохранять команду в игре в тяжёлые минуты (${saves} сейвов против «${oppTeam}»). Оценка ${rating} приятна, но надёжность сзади — всегда заслуга всей линии обороны.`;
+    }
+    return `Оценка ${rating} и статус лучшего игрока матча — хороший стимул, но важнее, как чувствует себя вся команда «${myTeam}». Физически выложился полностью, темп с «${oppTeam}» был очень высоким.`;
+  }
+
+  if (/соперник|команд|счёт|счет|результ|ничь|побед|пораж|дальш|следующ|таблиц/.test(q)) {
+    return diff > 0
+      ? `«${oppTeam}» навязал плотную борьбу и заставил понервничать, но при счёте ${hg}:${ag} мы показали характер и взяли заслуженные три очка. Сейчас главное — быстро восстановиться к следующему туру.`
+      : diff === 0
+        ? `С учётом того, как складывалась встреча с «${oppTeam}» (${hg}:${ag}), ничья — закономерный итог, хотя внутри всё равно остаётся спортивная злость. Потенциал у нас ещё выше.`
+        : `«${oppTeam}» грамотно воспользовался нашими ошибками и заслуженно удержал преимущество (${hg}:${ag}). Больно проигрывать, но через пару дней уже следующий матч — нужно переключаться.`;
+  }
+
+  // General direct question with concrete match specifics (score, opponent, coach, stats)
+  return pickBySeed([
+    `Если говорить прямо по игре с «${oppTeam}» (${HName} ${hg}:${ag} ${AName}), всё решали детали в переходных фазах. ${goals > 0 ? `Рад, что удалось отметиться голом и помочь «${myTeam}»,` : tackles > 2 ? `Пришлось много пахать в единоборствах,` : `Мы старались навязать свой темп,`} и команда билась за каждый мяч до последней секунды.`,
+    `Сразу после свистка эмоции ещё кипят — матч ${HName} ${hg}:${ag} ${AName} получился очень плотным по движению. ${coachName} просил не сбавлять обороты на флангах, и за счёт характера мы держали игру в тонусе все 90 минут.`,
+    `Против «${oppTeam}» лёгких матчей не бывает, сегодня пришлось терпеть и много работать без мяча. Лично я рад оценке ${rating}, но все мысли уже о том, как прибавить в следующей игре «${myTeam}».`
+  ], seed);
+}
 function getMatchMotm(match, fixture, homeName, awayName, coachHome, coachAway) {
   const cached = Array.isArray(match?.ratings) && match.ratings.length ? match.ratings : null;
   const ratings = cached || computeMatchRatings(match, fixture, homeName, awayName);
@@ -850,7 +1069,7 @@ function getMatchMotm(match, fixture, homeName, awayName, coachHome, coachAway) 
       const tObj = team(fallbackP.teamId) || team(winTid);
       const tNm = tObj?.name || winName || homeName;
       const r = +(7.4 + (hg !== ag ? 0.5 : 0.2)).toFixed(1);
-      return {
+      const pseudoBest = {
         pid: fallbackP.id,
         playerId: fallbackP.id,
         name: fallbackP.name,
@@ -859,16 +1078,22 @@ function getMatchMotm(match, fixture, homeName, awayName, coachHome, coachAway) 
         team: tNm,
         teamName: tNm,
         teamId: tObj?.id || winTid,
-        teamLogo: teamLogo(tObj?.id || winTid),
+        side: (tObj?.id || winTid) === fixture?.away ? "away" : "home",
         goals: 0,
         assists: 0,
         saves: 0,
-        headline: `«${fallbackP.name}: командная дисциплина решила исход встречи ${homeName} — ${awayName}»`,
+        tackles: 0
+      };
+      const dyn = buildDynamicMotmInterview(fixture, pseudoBest, homeName, awayName, coachHome, coachAway, match);
+      return {
+        ...pseudoBest,
+        teamLogo: teamLogo(tObj?.id || winTid),
+        headline: `«${fallbackP.name}: ключевая роль во встрече ${homeName} — ${awayName} (${hg}:${ag})»`,
         interview: {
-          headline: `«${fallbackP.name}: мы выполнили установку и добились результата»`,
-          quote: `Матч получился напряжённым, но мы держали концентрацию до финального свистка. Спасибо болельщикам за поддержку!`,
-          tacticsComment: `Тренерский штаб чётко разобрал соперника, и план на игру сработал.`,
-          mood: "satisfied"
+          headline: `«${fallbackP.name}: ключевая роль во встрече ${homeName} — ${awayName} (${hg}:${ag})»`,
+          quote: dyn.quote,
+          tacticsComment: dyn.tacticsComment,
+          mood: hg !== ag ? "happy" : "satisfied"
         }
       };
     }
@@ -901,10 +1126,7 @@ function getMatchMotm(match, fixture, homeName, awayName, coachHome, coachAway) 
   } else if (best.tackles >= 3) {
     headline = `«${best.name} выиграл ключевые единоборства (${best.tackles} отборов) и закрыл свою зону»`;
   }
-  const sideCoach = best.side === "away" ? coachAway : coachHome;
-  const tacticsLine = sideCoach?.name
-    ? `Установка ${sideCoach.name} сработала: мы действовали компактно и знали, как использовать слабые зоны соперника.`
-    : `Установка тренера была предельно ясной: дисциплина в обороне и быстрые решения при переходе в атаку.`;
+  const dyn = buildDynamicMotmInterview(fixture, best, homeName, awayName, coachHome, coachAway, match);
   return {
     ...best,
     pid: best.playerId,
@@ -913,8 +1135,8 @@ function getMatchMotm(match, fixture, homeName, awayName, coachHome, coachAway) 
     headline,
     interview: {
       headline,
-      quote: `Мы настраивались на тяжёлую борьбу в матче против серьёзного соперника (${homeName} ${hg}:${ag} ${awayName}). Рад, что удалось помочь команде и порадовать трибуны!`,
-      tacticsComment: tacticsLine,
+      quote: dyn.quote,
+      tacticsComment: dyn.tacticsComment,
       mood: "satisfied"
     }
   };
@@ -13549,14 +13771,18 @@ app.get("/api/match/:id", (req, res) => {
       tackles: rawMotm.tackles,
       teamLogo: rawMotm.teamLogo || teamLogo(resolvedTid)
     };
+    const rawQuote = stripOuterQuotes(rawMotm.quote || rawMotm.interview?.quote || "");
+    const rawTactics = stripOuterQuotes(rawMotm.coachTacticsReflection || rawMotm.interview?.tacticsComment || "");
+    const shouldUpgrade = !rawQuote || isLegacyCannedInterview(rawQuote, rawTactics);
+    const upgraded = shouldUpgrade ? buildDynamicMotmInterview(f, { ...p, side: resolvedTid === f.away ? "away" : "home", teamId: resolvedTid, teamName: resolvedTeamName }, HName, AName, coachHome, coachAway, m) : null;
     motmOut = {
       ...rawMotm,
       player: p,
       name: rawMotm.name || p.name,
       rating: rawMotm.rating || p.rating,
       headline: rawMotm.headline || rawMotm.interview?.headline || `«${p.name}: командная работа принесла результат»`,
-      quote: rawMotm.quote || rawMotm.interview?.quote || `Мы провели отличный матч и бились за каждый мяч. Спасибо болельщикам за поддержку!`,
-      coachTacticsReflection: rawMotm.coachTacticsReflection || rawMotm.interview?.tacticsComment || ""
+      quote: upgraded ? upgraded.quote : rawQuote,
+      coachTacticsReflection: upgraded ? upgraded.tacticsComment : rawTactics
     };
   }
   const hasStoredRatings = Array.isArray(m?.ratings) && m.ratings.length > 0;
@@ -13740,26 +13966,58 @@ app.get("/api/match/:id", (req, res) => {
 });
 app.post("/api/match/:id/interview", async (req, res) => {
   const f = fx(req.params.id);
-  if (!f || f.status !== "done") return fail(res, "\u041C\u0430\u0442\u0447 \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D");
+  if (!f || f.status !== "done") return fail(res, "Матч ещё не завершён");
   const m = getMatch(f.id);
   const HName = tn(f.home), AName = tn(f.away);
   const cH = getCoachForTeam(f.home), cA = getCoachForTeam(f.away);
   const motm = m?.motm || (m ? getMatchMotm(m, f, HName, AName, cH, cA) : null);
-  if (!motm) return fail(res, "\u041D\u0435\u0442 \u0434\u0430\u043D\u043D\u044B\u0445 \u043E \u043B\u0443\u0447\u0448\u0435\u043C \u0438\u0433\u0440\u043E\u043A\u0435");
-  const question = String(req.body.question || "\u041A\u0430\u043A \u043F\u0440\u043E\u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0438\u0440\u0443\u0435\u0442\u0435 \u0438\u0441\u0445\u043E\u0434 \u0432\u0441\u0442\u0440\u0435\u0447\u0438 \u0438 \u0441\u0432\u043E\u044E \u0438\u0433\u0440\u0443?").trim();
-  if (hasLLM()) {
+  if (!motm) return fail(res, "Нет данных о лучшем игроке");
+  const question = String(req.body?.question || "").trim().replace(/\s+/g, " ").slice(0, 300);
+  if (question.length < 2 || !/[a-zA-Zа-яА-ЯёЁ0-9]{2}/.test(question)) {
+    return fail(res, "Введите осмысленный вопрос для игрока (минимум 2 буквы или цифры)");
+  }
+  const actor = resolveActor(req);
+  const adCheck = verifyAndConsumeAdProof(req.body?.adProof, "interview_ask", actor.actorKey, false);
+  if (!adCheck.ok) {
+    return fail(res, adCheck.error, 400);
+  }
+  const resolvedTid = motm.teamId || motm.player?.teamId || (motm.side === "away" ? f.away : f.home);
+  const isHome = resolvedTid === f.home;
+  const sideCoach = isHome ? cH : cA;
+  const myTeamName = motm.teamName || motm.team || (isHome ? HName : AName);
+  const oppTeamName = isHome ? AName : HName;
+  const hg = Number(f.hg ?? 0), ag = Number(f.ag ?? 0);
+  const gf = isHome ? hg : ag, ga = isHome ? ag : hg;
+  const outcomeWord = gf > ga ? "победа" : gf === ga ? "ничья" : "поражение";
+  const goalsList = (Array.isArray(m?.events) ? m.events : [])
+    .filter((ev: any) => ev.type === "goal" || ev.type === "own_goal")
+    .slice(0, 10)
+    .map((ev: any) => `${ev.min}' ${ev.player || ""} (${ev.team === "home" ? HName : AName})`)
+    .join("; ");
+  let answer = "";
+  if (provList().length > 0) {
     try {
-      const prompt = `\u0422\u044B \u2014 \u043B\u0443\u0447\u0448\u0438\u0439 \u0438\u0433\u0440\u043E\u043A \u043C\u0430\u0442\u0447\u0430 ${motm.name} (${motm.pos}, \u043A\u043B\u0443\u0431 ${motm.teamName}). \u041C\u0430\u0442\u0447: ${HName} ${f.hg}:${f.ag} ${AName} (${roundLabel(f)}). \u0416\u0443\u0440\u043D\u0430\u043B\u0438\u0441\u0442 \u043D\u0430 \u0444\u043B\u0435\u0448-\u0438\u043D\u0442\u0435\u0440\u0432\u044C\u044E \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442: "${question}". \u041E\u0442\u0432\u0435\u0442\u044C \u0436\u0438\u0432\u043E, \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, \u0441\u0434\u0435\u0440\u0436\u0430\u043D\u043D\u043E \u0438\u043B\u0438 \u0432\u043E\u043E\u0434\u0443\u0448\u0435\u0432\u043B\u0435\u043D\u043D\u043E \u0432 2-4 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u0445 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430.`;
-      const ans = await callProv(provList()[0], "", prompt, { temp: 0.8, max: 500 });
-      return res.json({ question, answer: ans.trim(), player: motm.name });
-    } catch {
+      const sysPrompt = `Ты — футболист ${motm.name} (${motm.pos || "ЦП"}, клуб «${myTeamName}»), признанный лучшим игроком матча ${HName} ${hg}:${ag} ${AName} (${roundLabel(f)}).
+Главный тренер твоей команды: ${sideCoach?.name || "главный тренер"}. Соперник: «${oppTeamName}». Итог для твоей команды: ${outcomeWord} (${hg}:${ag}).
+Твоя статистика в матче: оценка ${motm.rating || "7.5"}, голы: ${motm.goals || 0}, ассисты: ${motm.assists || 0}, сейвы: ${motm.saves || 0}, отборы: ${motm.tackles || 0}.
+${goalsList ? `Голы в матче: ${goalsList}.` : ""}
+Правила ответа:
+1. Отвечай прямо и по существу именно на вопрос журналиста — без воды и без заученных клише.
+2. Пиши от первого лица живым языком футболиста в микст-зоне (2-4 предложения).
+3. Обязательно учитывай реальный счёт (${hg}:${ag}) и результат матча (победа/ничья/поражение) — не поздравляй себя с победой, если была ничья или поражение!
+4. Не ставь кавычки «» вокруг всего ответа.`;
+      const llmAns = await aiCtx.run({ ai: true, calls: 0, cap: 2 }, () =>
+        llm(sysPrompt, `Вопрос журналиста: ${question}`, { json: false, task: "motm_interview_qa", temp: 0.9, max: 600 })
+      );
+      answer = stripOuterQuotes(llmAns || "");
+    } catch (err: any) {
+      console.warn("[MOTM Interview LLM Fallback]:", err?.message);
     }
   }
-  return res.json({
-    question,
-    answer: `\xAB${question.includes("\u0443\u0434\u0430\u0440") || question.includes("\u0433\u043E\u043B") ? "\u0412 \u043C\u043E\u043C\u0435\u043D\u0442\u0435 \u0441 \u0433\u043E\u043B\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u043E \u043F\u0440\u0438\u043D\u044F\u043B \u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u0431\u0438\u0442\u044C \u0432 \u0443\u0433\u043E\u043B, \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0431\u044B\u043B\u043E \u043F\u043E\u043F\u0430\u0441\u0442\u044C \u0432 \u0441\u0442\u0432\u043E\u0440. " : ""}\u041C\u044B \u0433\u043E\u0442\u043E\u0432\u0438\u043B\u0438\u0441\u044C \u043A \u0442\u044F\u0436\u0451\u043B\u043E\u0439 \u0431\u043E\u0440\u044C\u0431\u0435. \u0422\u0440\u0435\u043D\u0435\u0440 \u0443\u043A\u0430\u0437\u0430\u043B \u043D\u0430 \u043A\u043B\u044E\u0447\u0435\u0432\u044B\u0435 \u0437\u043E\u043D\u044B, \u043C\u044B \u0441\u0442\u0430\u0440\u0430\u043B\u0438\u0441\u044C \u0441\u0442\u0440\u043E\u0433\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443 \u0438 \u0440\u0430\u0434\u044B \u043F\u043E\u0434\u0430\u0440\u0438\u0442\u044C \u044D\u043C\u043E\u0446\u0438\u0438 \u043D\u0430\u0448\u0438\u043C \u0444\u0430\u043D\u0430\u0442\u0430\u043C!\xBB`,
-    player: motm.name
-  });
+  if (!answer) {
+    answer = buildContextualInterviewAnswer(question, f, { ...motm, teamId: resolvedTid, teamName: myTeamName }, HName, AName, m, sideCoach);
+  }
+  return res.json({ question, answer, player: motm.name });
 });
 app.get("/api/cup/structure", (req, res) => {
   if (!db.cupState2026) advanceCup();

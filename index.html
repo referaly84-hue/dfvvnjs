@@ -4318,32 +4318,53 @@ function paintMatch() {
       </div>` : ''}
 
       <div style="margin-top:18px;border-top:1px dashed var(--line);padding-top:14px">
-        <h4 style="margin:0 0 8px;font-size:14px">Задать вопрос лучшему игроку матча (как журналист)</h4>
+        <h4 style="margin:0 0 6px;font-size:14px">Задать вопрос лучшему игроку матча (как журналист)</h4>
+        <div class="small muted" style="margin-bottom:8px">Чтобы задать вопрос в микст-зоне, необходимо посмотреть короткую рекламу Adsgram.</div>
         <div class="row">
-          <input id="iq" placeholder="Например: За счёт чего удалось выиграть? Как повлияла установка тренера? Доволен ли своей игрой?" style="flex:1;min-width:240px">
-          <button class="btn" id="iask">Спросить игрока</button>
+          <input id="iq" placeholder="Например: За счёт чего удалось сыграть так ярко? Как установка тренера?" style="flex:1;min-width:240px">
+          <button class="btn" id="iask">Спросить (реклама)</button>
         </div>
         <div id="ians" style="margin-top:12px"></div>
       </div>
     </div>`;
 
     $('#iask').onclick = async () => {
-      const q = $('#iq').value.trim();
-      if (!q) return;
-      $('#iask').disabled = true;
-      $('#ians').innerHTML = '<div class="qa">Игрок отвечает журналистам…</div>';
+      const q = $('#iq').value.trim().replace(/\s+/g, ' ');
+      if (q.length < 2 || !/[a-zA-Zа-яА-ЯёЁ0-9]{2}/.test(q)) {
+        toast('Введите осмысленный вопрос для игрока (минимум 2 буквы)', true);
+        return;
+      }
+      const btn = $('#iask');
+      btn.disabled = true;
       try {
-        const res = await api(`/match/${id}/interview`, { question: q });
-        $('#ians').innerHTML = `
+        const adRes = await window.__RPL_EXT__?.runAdsgramBlock?.(
+          'interview_ask',
+          `Вопрос игроку: ${p.name}`,
+          'После короткого просмотра рекламы игрок ответит на ваш вопрос в микст-зоне.'
+        );
+        if (!adRes) return;
+        const pendingEl = document.createElement('div');
+        pendingEl.className = 'qa';
+        pendingEl.textContent = 'Игрок отвечает журналистам…';
+        $('#ians').prepend(pendingEl);
+        const res = await api(`/match/${id}/interview`, { question: q, adProof: adRes.adProof });
+        const cleanAns = String(res.answer || '').replace(/^[«"'„“]+|[»"'”]+$/g, '').trim();
+        pendingEl.outerHTML = `
         <div class="interview-card" style="margin-top:8px">
           <p><b>❓ Вопрос журналиста:</b> ${e(res.question)}</p>
-          <div class="interview-quote"><b>🗣️ ${e(res.player)}:</b> «${e(res.answer)}»</div>
+          <div class="interview-quote"><b>🗣️ ${e(res.player)}:</b> «${e(cleanAns)}»</div>
           ${res.coachComment ? `<div class="interview-coach-note"><b>👔 Комментарий главного тренера (${e(res.coach)}):</b> «${e(res.coachComment)}»</div>` : ''}
         </div>`;
+        $('#iq').value = '';
       } catch (err) {
-        $('#ians').innerHTML = `<div class="warn">${e(err.message)}</div>`;
+        $('#ians').querySelectorAll('.qa').forEach((el) => el.remove());
+        const errBox = document.createElement('div');
+        errBox.className = 'warn';
+        errBox.style.marginTop = '8px';
+        errBox.textContent = err?.message || 'Ошибка отправки вопроса';
+        $('#ians').prepend(errBox);
       } finally {
-        $('#iask').disabled = false;
+        btn.disabled = false;
       }
     };
   } else if (mtab === 'lineups') {
