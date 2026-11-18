@@ -59,8 +59,6 @@ const ARRAYS: Arr[] = [
   { key: 'staffOffers', table: 'staff_offers', cols: [gen('status', 'status')] },
   { key: 'staffRoles', table: 'staff_roles' },
   { key: 'friendlyRequests', table: 'friendly_requests', cols: [gen('status', 'status')] },
-  { key: 'insiderPosts', table: 'insider_posts' },
-  { key: 'eskCases', table: 'esk_cases' },
 ];
 type Dict = { key: string; table: string };
 const DICTS: Dict[] = [
@@ -72,7 +70,7 @@ const DICTS: Dict[] = [
   { key: 'dailyWeather', table: 'daily_weather' },
   { key: 'cityClimates', table: 'city_climates' },
 ];
-const HANDLED = new Set<string>([...ARRAYS.map(a => a.key), ...DICTS.map(d => d.key), 'settings', 'sessions', '_savedAt']);
+const HANDLED = new Set<string>([...ARRAYS.map(a => a.key), ...DICTS.map(d => d.key), 'settings', 'sessions', '_savedAt', 'insiderPosts', 'eskCases']);
 
 /* ───────── подключение и схема ───────── */
 function connConfig(): pg.PoolConfig | null {

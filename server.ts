@@ -1231,9 +1231,7 @@ var ARRAYS = [
   { key: "foreignOffers", table: "foreign_offers", cols: [gen("status", "status")] },
   { key: "staffOffers", table: "staff_offers", cols: [gen("status", "status")] },
   { key: "staffRoles", table: "staff_roles" },
-  { key: "friendlyRequests", table: "friendly_requests", cols: [gen("status", "status")] },
-  { key: "insiderPosts", table: "insider_posts" },
-  { key: "eskCases", table: "esk_cases" }
+  { key: "friendlyRequests", table: "friendly_requests", cols: [gen("status", "status")] }
 ];
 var DICTS = [
   { key: "squads", table: "squads" },
@@ -1244,7 +1242,7 @@ var DICTS = [
   { key: "dailyWeather", table: "daily_weather" },
   { key: "cityClimates", table: "city_climates" }
 ];
-var HANDLED = /* @__PURE__ */ new Set([...ARRAYS.map((a) => a.key), ...DICTS.map((d) => d.key), "settings", "sessions", "_savedAt"]);
+var HANDLED = /* @__PURE__ */ new Set([...ARRAYS.map((a) => a.key), ...DICTS.map((d) => d.key), "settings", "sessions", "_savedAt", "insiderPosts", "eskCases"]);
 function connConfig() {
   const raw = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || PG_HARDCODED.url || "").trim();
   if (!raw) return null;
@@ -4528,162 +4526,6 @@ function respondToForeignOffer(db2: any, offerId: string, action: string, tid?: 
   return { ok: true, status: "accepted", offer, netIncome: netSellerIncome, newBudget: seller.budget };
 }
 
-// src/insider_feed.ts
-var TELEGRAM_CHANNELS = {
-  karp: {
-    id: "karp",
-    name: "\u0418\u043D\u0441\u0430\u0439\u0434\u044B \u043E\u0442 \u041A\u0430\u0440\u043F\u0430",
-    handle: "@karpinside",
-    avatarBg: "#ea580c",
-    avatarIcon: "\u{1F4A3}",
-    desc: "\u042D\u043A\u0441\u043A\u043B\u044E\u0437\u0438\u0432\u044B, \u043A\u043E\u043D\u0442\u0440\u0430\u043A\u0442\u044B, \u0442\u0440\u0430\u043D\u0441\u0444\u0435\u0440\u043D\u044B\u0435 \u0431\u043E\u043C\u0431\u044B \u0440\u043E\u0441\u0441\u0438\u0439\u0441\u043A\u043E\u0433\u043E \u0444\u0443\u0442\u0431\u043E\u043B\u0430"
-  },
-  nobel: {
-    id: "nobel",
-    name: "\u041D\u043E\u0431\u0435\u043B\u044C",
-    handle: "@nobelarustamyan",
-    avatarBg: "#0284c7",
-    avatarIcon: "\u{1F399}\uFE0F",
-    desc: "\u0411\u043E\u043B\u044C\u0448\u0438\u0435 \u0438\u043D\u0442\u0435\u0440\u0432\u044C\u044E, \u0435\u0432\u0440\u043E\u043F\u0435\u0439\u0441\u043A\u0438\u0435 \u0438\u043D\u0441\u0430\u0439\u0434\u044B \u0438 \u0437\u0430\u043A\u0443\u043B\u0438\u0441\u044C\u0435"
-  },
-  spartak: {
-    id: "spartak",
-    name: "\u041A\u0411 \u0422\u0435\u043B\u0435\u0433\u0430",
-    handle: "@kb_telega",
-    avatarBg: "#dc2626",
-    avatarIcon: "\u{1F534}\u26AA",
-    desc: "\u0412\u0441\u0451 \u043E \u0421\u043F\u0430\u0440\u0442\u0430\u043A\u0435: \u0440\u0430\u0437\u0434\u0435\u0432\u0430\u043B\u043A\u0430, \u0441\u043E\u0432\u0435\u0442 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u043E\u0432, \u0442\u0440\u0430\u043D\u0441\u0444\u0435\u0440\u044B"
-  },
-  rfs: {
-    id: "rfs",
-    name: "\u041F\u0440\u0435\u0441\u0441-\u0441\u043B\u0443\u0436\u0431\u0430 \u0420\u0424\u0421",
-    handle: "@rfsru_official",
-    avatarBg: "#1e3a8a",
-    avatarIcon: "\u{1F1F7}\u{1F1FA}",
-    desc: "\u041E\u0444\u0438\u0446\u0438\u0430\u043B\u044C\u043D\u044B\u0435 \u0437\u0430\u044F\u0432\u043B\u0435\u043D\u0438\u044F, \u0440\u0435\u0433\u043B\u0430\u043C\u0435\u043D\u0442 \u0438 \u0440\u0435\u0448\u0435\u043D\u0438\u044F \u043A\u043E\u043C\u0438\u0442\u0435\u0442\u043E\u0432 \u0420\u0424\u0421"
-  },
-  mutko: {
-    id: "mutko",
-    name: "\u041C\u0443\u0442\u043A\u043E \u043F\u0440\u043E\u0442\u0438\u0432",
-    handle: "@mutkoprotiv",
-    avatarBg: "#475569",
-    avatarIcon: "\u26A1",
-    desc: "\u0420\u0430\u0441\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u044F, \u0444\u0438\u043D\u0430\u043D\u0441\u043E\u0432\u044B\u0435 \u0441\u043A\u0430\u043D\u0434\u0430\u043B\u044B \u0438 \u0441\u0443\u0434\u0435\u0439\u0441\u043A\u0438\u0435 \u0438\u043D\u0442\u0440\u0438\u0433\u0438"
-  }
-};
-function getInitialInsiderPosts() {
-  return [
-    {
-      id: "insider_init_1",
-      channelId: "karp",
-      channelName: TELEGRAM_CHANNELS.karp.name,
-      channelHandle: TELEGRAM_CHANNELS.karp.handle,
-      avatarBg: TELEGRAM_CHANNELS.karp.avatarBg,
-      avatarIcon: TELEGRAM_CHANNELS.karp.avatarIcon,
-      title: "\u{1F525} \u0416\u0430\u0440\u0430 \u043D\u0430 \u0442\u0440\u0430\u043D\u0441\u0444\u0435\u0440\u043D\u043E\u043C \u0440\u044B\u043D\u043A\u0435 \u043F\u0435\u0440\u0435\u0434 \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u0435\u043C \u043E\u043A\u043D\u0430!",
-      text: "\u041A\u043B\u0443\u0431\u044B \u0420\u041F\u041B \u0433\u043E\u0442\u043E\u0432\u044F\u0442 \u0441\u0440\u0430\u0437\u0443 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0433\u0440\u043E\u043C\u043A\u0438\u0445 \u043F\u0435\u0440\u0435\u0445\u043E\u0434\u043E\u0432. \u0412\u0435\u0434\u0443\u0442\u0441\u044F \u043F\u0435\u0440\u0435\u0433\u043E\u0432\u043E\u0440\u044B \u043F\u043E \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D\u0438\u044E \u043B\u0430\u0442\u0438\u043D\u043E\u0430\u043C\u0435\u0440\u0438\u043A\u0430\u043D\u0441\u043A\u0438\u0445 \u0442\u0430\u043B\u0430\u043D\u0442\u043E\u0432.",
-      tag: "\u0422\u0440\u0430\u043D\u0441\u0444\u0435\u0440\u044B",
-      tagColor: "#ea580c",
-      time: "12:00",
-      likes: 142,
-      isHot: true
-    },
-    {
-      id: "insider_init_2",
-      channelId: "rfs",
-      channelName: TELEGRAM_CHANNELS.rfs.name,
-      channelHandle: TELEGRAM_CHANNELS.rfs.handle,
-      avatarBg: TELEGRAM_CHANNELS.rfs.avatarBg,
-      avatarIcon: TELEGRAM_CHANNELS.rfs.avatarIcon,
-      title: "\u{1F4CB} \u0420\u0430\u0437\u044A\u044F\u0441\u043D\u0435\u043D\u0438\u0435 \u0441\u0443\u0434\u0435\u0439\u0441\u043A\u043E\u0433\u043E \u043A\u043E\u043C\u0438\u0442\u0435\u0442\u0430 \u043F\u043E \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u043C \u0442\u0443\u0440\u0430\u043C",
-      text: "\u0412\u0441\u0435 \u0441\u043F\u043E\u0440\u043D\u044B\u0435 \u043C\u043E\u043C\u0435\u043D\u0442\u044B \u0432 \u0448\u0442\u0440\u0430\u0444\u043D\u043E\u0439 \u043F\u043B\u043E\u0449\u0430\u0434\u0438 \u043E\u043F\u0435\u0440\u0430\u0442\u0438\u0432\u043D\u043E \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u043D\u0430 \u044D\u043A\u0441\u043F\u0435\u0440\u0442\u0438\u0437\u0443 \u042D\u0421\u041A \u0420\u0424\u0421.",
-      tag: "\u0421\u0443\u0434\u0435\u0439\u0441\u0442\u0432\u043E",
-      tagColor: "#0284c7",
-      time: "14:30",
-      likes: 89,
-      isHot: false
-    }
-  ];
-}
-function generatePostMatchInsider(db2, fixture, match) {
-  return null;
-}
-function generateRandomInsiderDrop(db2, tag) {
-  const ch = TELEGRAM_CHANNELS.karp;
-  return {
-    id: `insider_${Date.now()}`,
-    channelId: ch.id,
-    channelName: ch.name,
-    channelHandle: ch.handle,
-    avatarBg: ch.avatarBg,
-    avatarIcon: ch.avatarIcon,
-    title: "\u26A1 \u041D\u043E\u0432\u044B\u0439 \u0438\u043D\u0441\u0430\u0439\u0434 \u0438\u0437 \u0448\u0442\u0430\u0431\u0430 \u043B\u0438\u0434\u0435\u0440\u043E\u0432 \u0420\u041F\u041B",
-    text: "\u0422\u0440\u0435\u043D\u0435\u0440\u0441\u043A\u0438\u0439 \u0448\u0442\u0430\u0431 \u043F\u043B\u0430\u043D\u0438\u0440\u0443\u0435\u0442 \u0442\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u0435\u0440\u0435\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438 \u043D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u043A\u043B\u044E\u0447\u0435\u0432\u043E\u0439 \u0442\u0443\u0440.",
-    tag: tag || "\u0418\u043D\u0441\u0430\u0439\u0434",
-    tagColor: "#ea580c",
-    time: (/* @__PURE__ */ new Date()).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
-    likes: Math.floor(Math.random() * 50) + 10,
-    isHot: Math.random() > 0.5
-  };
-}
-async function generateAIInsiderPost(...args) {
-  const db2 = args[0];
-  return generateRandomInsiderDrop(db2);
-}
-function generateDrawInsiderPost(db2, type, payload) {
-  const ch = TELEGRAM_CHANNELS.rfs;
-  return {
-    id: `insider_draw_${Date.now()}`,
-    channelId: ch.id,
-    channelName: ch.name,
-    channelHandle: ch.handle,
-    avatarBg: ch.avatarBg,
-    avatarIcon: ch.avatarIcon,
-    title: "\u{1F3B2} \u0416\u0435\u0440\u0435\u0431\u044C\u0451\u0432\u043A\u0430 \u041A\u0443\u0431\u043A\u0430: \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u043A\u043E\u0440\u0437\u0438\u043D",
-    text: "\u041E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u043B\u0438\u0441\u044C \u0441\u043E\u0441\u0442\u0430\u0432\u044B \u0433\u0440\u0443\u043F\u043F \u0438 \u0442\u0443\u0440\u043D\u0438\u0440\u043D\u0430\u044F \u0441\u0435\u0442\u043A\u0430 \u043F\u043B\u0435\u0439-\u043E\u0444\u0444!",
-    tag: "\u041A\u0443\u0431\u043E\u043A",
-    tagColor: "#1e3a8a",
-    time: (/* @__PURE__ */ new Date()).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
-    likes: 67
-  };
-}
-
-// src/esk_rfs.ts
-function getInitialEskCases() {
-  return [
-    {
-      id: "esk_init_1",
-      episode: "\u041F\u0430\u0434\u0435\u043D\u0438\u0435 \u0432 \u0448\u0442\u0440\u0430\u0444\u043D\u043E\u0439 \u043F\u043B\u043E\u0449\u0430\u0434\u0438 \u043D\u0430 84-\u0439 \u043C\u0438\u043D\u0443\u0442\u0435 \u043C\u0430\u0442\u0447\u0430",
-      referee: "\u0421\u0435\u0440\u0433\u0435\u0439 \u041A\u0430\u0440\u0430\u0441\u0435\u0432",
-      varReferee: "\u041F\u0430\u0432\u0435\u043B \u041A\u0443\u043A\u0443\u044F\u043D",
-      clubClaimant: "\u0421\u043F\u0430\u0440\u0442\u0430\u043A",
-      status: "resolved",
-      verdict: "correct",
-      officialComment: "\u0421\u0443\u0434\u044C\u044F \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u043B \u0438\u0433\u0440\u0443, \u043A\u043E\u043D\u0442\u0430\u043A\u0442 \u0431\u044B\u043B \u0435\u0441\u0442\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u043C \u0438\u0433\u0440\u043E\u0432\u044B\u043C \u0435\u0434\u0438\u043D\u043E\u0431\u043E\u0440\u0441\u0442\u0432\u043E\u043C.",
-      voting: { supportReferee: 6, againstReferee: 1, membersTotal: 7 },
-      createdAt: "2026-08-01"
-    }
-  ];
-}
-function checkControversialMomentsForEsk(db2, fixture, match) {
-  return null;
-}
-function resolveEskCase(db2, caseId, verdict, comment, reviewerName) {
-  if (!db2?.eskCases) return null;
-  const c = db2.eskCases.find((x) => x.id === caseId);
-  if (c) {
-    c.status = "resolved";
-    c.verdict = verdict;
-    c.officialComment = comment;
-    c.resolvedBy = reviewerName;
-    c.resolvedAt = (/* @__PURE__ */ new Date()).toISOString();
-  }
-  return c;
-}
-async function generateAIEskAnalysis(db2, caseId) {
-  return "\u042D\u043F\u0438\u0437\u043E\u0434 \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u043D \u0432 \u0441\u0442\u0440\u043E\u0433\u043E\u043C \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u0438 \u0441 \u041F\u0440\u0430\u0432\u0438\u043B\u0430\u043C\u0438 \u0438\u0433\u0440\u044B IFAB \u0438 \u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0430\u0446\u0438\u044F\u043C\u0438 \u0414\u0435\u043F\u0430\u0440\u0442\u0430\u043C\u0435\u043D\u0442\u0430 \u0441\u0443\u0434\u0435\u0439\u0441\u0442\u0432\u0430 \u0420\u0424\u0421.";
-}
-
 // server.ts
 var _origFetch = globalThis.fetch;
 var PROXY_ROUTES = [
@@ -6046,17 +5888,6 @@ function assignReferee(f, siblingList) {
   const siblings = validSiblings.filter((x) => x.id !== f.id && getFixtureTourKey(x) === tourKey);
   assignTourReferees([f, ...siblings]);
 }
-function getFixtureEskCases(f) {
-  if (!f || !Array.isArray(db?.eskCases)) return [];
-  const hName = tn(f.home);
-  const aName = tn(f.away);
-  return db.eskCases.filter((c) => {
-    if (c.fixtureId && c.fixtureId === f.id) return true;
-    if (c.matchId && c.matchId === f.id) return true;
-    if (c.homeTeam && c.awayTeam && c.homeTeam === hName && c.awayTeam === aName && (!f.date || !c.date || c.date === f.date)) return true;
-    return false;
-  });
-}
 function computeRefereeMatchEval(f, events = [], matchObj: any = null, storedHist: any = null) {
   const yc = events.length ? events.filter((e) => e.type === "yellow").length : ((f.st?.teams?.home?.yc ?? f.st?.home?.yc ?? 0) + (f.st?.teams?.away?.yc ?? f.st?.away?.yc ?? 0));
   const rc = events.length ? events.filter((e) => e.type === "red").length : ((f.st?.teams?.home?.rc ?? f.st?.home?.rc ?? 0) + (f.st?.teams?.away?.rc ?? f.st?.away?.rc ?? 0));
@@ -6075,10 +5906,6 @@ function computeRefereeMatchEval(f, events = [], matchObj: any = null, storedHis
     : 0;
   const tierInfo = classifyMatchTier(f);
   const baseGrade = tierInfo.tier === "top" ? 8.05 : tierInfo.tier === "weak" ? 7.8 : 7.9;
-  const eskCases = getFixtureEskCases(f);
-  const eskIncorrect = eskCases.filter((c) => c.status === "resolved" && (c.verdict === "incorrect" || c.hearing?.verdict === "error_confirmed")).length;
-  const eskDisputable = eskCases.filter((c) => c.status === "resolved" && c.verdict === "disputable").length;
-  const eskCorrect = eskCases.filter((c) => c.status === "resolved" && c.verdict === "correct").length;
 
   let controlDelta = 0;
   if (yc >= 9 || fouls >= 42) controlDelta = -0.25;
@@ -6089,27 +5916,18 @@ function computeRefereeMatchEval(f, events = [], matchObj: any = null, storedHis
   let varDelta = 0;
   if (varOverturns > 0) {
     varDelta = -Math.min(0.6, +(varOverturns * 0.25).toFixed(2));
-  } else if (varChecks > 0 && refErr === 0 && eskIncorrect === 0) {
+  } else if (varChecks > 0 && refErr === 0) {
     varDelta = 0.05;
   }
 
   let keyDecisionBonus = 0;
-  if ((rc > 0 || pen > 0) && refErr === 0 && varOverturns === 0 && eskIncorrect === 0) {
+  if ((rc > 0 || pen > 0) && refErr === 0 && varOverturns === 0) {
     keyDecisionBonus += 0.15;
-  }
-  if (eskCorrect > 0 && refErr === 0 && eskIncorrect === 0) {
-    keyDecisionBonus += 0.1;
   }
   keyDecisionBonus = +Math.min(0.25, keyDecisionBonus).toFixed(2);
 
   let errorDelta = 0;
   if (refErr > 0) errorDelta -= refErr * 0.85;
-  if (eskIncorrect > 0) {
-    errorDelta -= refErr > 0 ? eskIncorrect * 0.45 : eskIncorrect * 0.85;
-  }
-  if (eskDisputable > 0 && eskIncorrect === 0) {
-    errorDelta -= eskDisputable * 0.2;
-  }
   errorDelta = +Math.max(-2.5, errorDelta).toFixed(2);
 
   const objMatchRating = +clamp(baseGrade + controlDelta + keyDecisionBonus + varDelta + errorDelta, 5.0, 9.5).toFixed(2);
@@ -6130,14 +5948,13 @@ function computeRefereeMatchEval(f, events = [], matchObj: any = null, storedHis
   let aiAdjustment = 0;
   if (aiEval) {
     let blended = aiEval.rating * 0.55 + objMatchRating * 0.45;
-    if (refErr > 0 || eskIncorrect > 0) blended = Math.min(blended, 6.85);
+    if (refErr > 0) blended = Math.min(blended, 6.85);
     matchRating = +clamp(blended, 5.0, 9.5).toFixed(2);
     aiAdjustment = +(matchRating - objMatchRating).toFixed(2);
   }
 
   return {
     yc, rc, pen, fouls, refErr, varChecks, varOverturns,
-    eskIncorrect, eskDisputable, eskCorrect,
     tierInfo, baseGrade, controlDelta, keyDecisionBonus, varDelta, errorDelta,
     objMatchRating, aiEval, aiAdjustment, matchRating,
     disciplineDelta: controlDelta,
@@ -6215,9 +6032,6 @@ function reconcileRefereeStats() {
         refErr: evalRes.refErr,
         varChecks: evalRes.varChecks,
         varOverturns: evalRes.varOverturns,
-        eskIncorrect: evalRes.eskIncorrect,
-        eskDisputable: evalRes.eskDisputable,
-        eskCorrect: evalRes.eskCorrect,
         baseGrade: evalRes.baseGrade,
         controlDelta: evalRes.controlDelta,
         keyDecisionBonus: evalRes.keyDecisionBonus,
@@ -6359,11 +6173,11 @@ function load() {
   if (!db.settings.squadSubmissions || typeof db.settings.squadSubmissions !== "object") {
     db.settings.squadSubmissions = {};
   }
-  for (const k of ["comps", "teams", "players", "fixtures", "derbies", "transfers", "llmlog", "tournaments", "transferRequests", "budgetHistory", "staffOffers", "staffRoles", "insiderPosts", "eskCases"]) {
+  for (const k of ["comps", "teams", "players", "fixtures", "derbies", "transfers", "llmlog", "tournaments", "transferRequests", "budgetHistory", "staffOffers", "staffRoles"]) {
     if (!Array.isArray(db[k])) db[k] = [];
   }
-  if (!db.insiderPosts.length) db.insiderPosts = getInitialInsiderPosts();
-  if (!db.eskCases.length) db.eskCases = getInitialEskCases();
+  delete db.insiderPosts;
+  delete db.eskCases;
   if (!db.referees || db.referees.length < 26) db.referees = JSON.parse(JSON.stringify(DEFAULT_REFEREES));
   if (!db.assistants || !db.assistants.length) {
     db.assistants = ASSISTANT_REFEREES.map((name, i) => ({
@@ -11289,22 +11103,6 @@ function finish(id) {
   pruneUnavailableFromSavedLineups();
   invalidateAgg();
   advanceCup();
-  if (!isFriendlyMatch) {
-    try {
-      const insider = generatePostMatchInsider(db, f, m);
-      if (insider) {
-        if (!Array.isArray(db.insiderPosts)) db.insiderPosts = [];
-        db.insiderPosts.unshift(insider);
-      }
-      const esk = checkControversialMomentsForEsk(db, f, m);
-      if (esk) {
-        if (!Array.isArray(db.eskCases)) db.eskCases = [];
-        db.eskCases.unshift(esk);
-      }
-    } catch (err) {
-      console.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0438\u043D\u0441\u0430\u0439\u0434\u0430/\u042D\u0421\u041A \u043F\u043E\u0441\u043B\u0435 \u043C\u0430\u0442\u0447\u0430:", err);
-    }
-  }
   saveNow(true);
   if (!isFriendlyMatch) checkForeignInterestAfterMatch(db, m, f).then((newOffers) => {
     if (newOffers && newOffers.length > 0) {
@@ -13497,8 +13295,6 @@ app.get("/api/state", (req, res) => {
       warmupStep: db.liveDraw?.warmupStep || 0,
       startedAt: db.liveDraw?.startedAt || null
     },
-    insidersCount: (db.insiderPosts || []).length,
-    pendingEskCount: (db.eskCases || []).filter((c) => c.status === "pending").length,
     regulations: getSeasonRegulations(S())
   });
 });
@@ -14444,16 +14240,6 @@ app.post("/api/admin/draw/start", admin, (req, res) => {
     postdrawMeta: {},
     viewers
   };
-  try {
-    if (!db.insiderPosts) db.insiderPosts = getInitialInsiderPosts();
-    const startPost = generateDrawInsiderPost(db, "draw_start", { tournament });
-    if (startPost) {
-      db.insiderPosts.unshift(startPost);
-      if (db.insiderPosts.length > 120) db.insiderPosts.length = 120;
-    }
-  } catch (err) {
-    console.error("[Draw Start Insider Post Error]:", err);
-  }
   save();
   const appUrl = (process.env.APP_URL || db.settings?.siteUrl || "http://localhost:3000").replace(/\/+$/, "");
   const tTitle = tournament === "media_cup" ? "Winline \u041A\u0443\u0431\u043A\u0430 \u041C\u0435\u0434\u0438\u0430\u043B\u0438\u0433\u0438 (MFL)" : tournament === "cup_regions" ? "FONBET \u041A\u0443\u0431\u043A\u0430 \u0420\u043E\u0441\u0441\u0438\u0438 (\u041F\u0443\u0442\u044C \u0420\u0435\u0433\u0438\u043E\u043D\u043E\u0432 \xB7 \u041C\u0435\u0434\u0438\u0430\u043B\u0438\u0433\u0430 vs 2-\u044F \u043B\u0438\u0433\u0430)" : "FONBET \u041A\u0443\u0431\u043A\u0430 \u0420\u043E\u0441\u0441\u0438\u0438 (\u041F\u0443\u0442\u044C \u0420\u041F\u041B)";
@@ -14520,28 +14306,6 @@ app.post("/api/admin/draw/stop", admin, (req, res) => {
     try {
       tg(`\u{1F3C1} <b>\u041F\u0440\u044F\u043C\u043E\u0439 \u044D\u0444\u0438\u0440 \u0436\u0435\u0440\u0435\u0431\u044C\u0451\u0432\u043A\u0438 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D!</b>
 \u0421\u043F\u0430\u0441\u0438\u0431\u043E \u0432\u0441\u0435\u043C \u0437\u0440\u0438\u0442\u0435\u043B\u044F\u043C \u0442\u0440\u0430\u043D\u0441\u043B\u044F\u0446\u0438\u0438!`);
-      const finishNotice = {
-        id: `post_draw_stop_${Date.now()}`,
-        channelId: "rfs",
-        channelName: TELEGRAM_CHANNELS.rfs.name,
-        channelHandle: TELEGRAM_CHANNELS.rfs.handle,
-        avatarBg: TELEGRAM_CHANNELS.rfs.avatarBg,
-        avatarIcon: TELEGRAM_CHANNELS.rfs.avatarIcon,
-        tag: "\u041E\u0444\u0438\u0446\u0438\u0430\u043B\u044C\u043D\u043E",
-        tagColor: "#64748b",
-        title: "\u{1F3C1} \u041F\u0440\u044F\u043C\u043E\u0439 \u044D\u0444\u0438\u0440 \u0436\u0435\u0440\u0435\u0431\u044C\u0451\u0432\u043A\u0438 \u0438\u0437 \u041E\u0441\u0442\u0430\u043D\u043A\u0438\u043D\u043E \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D",
-        content: `<b>\u041F\u0440\u044F\u043C\u043E\u0439 \u0422\u0412-\u044D\u0444\u0438\u0440 \u0436\u0435\u0440\u0435\u0431\u044C\u0451\u0432\u043A\u0438 \u043F\u043E\u0434\u043E\u0448\u0451\u043B \u043A \u043A\u043E\u043D\u0446\u0443!</b><br><br>\u0411\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u0438\u043C \u0437\u0440\u0438\u0442\u0435\u043B\u0435\u0439 \u0438 \u0431\u043E\u043B\u0435\u043B\u044C\u0449\u0438\u043A\u043E\u0432 \u0437\u0430 \u0432\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u043A \u0442\u0440\u0430\u043D\u0441\u043B\u044F\u0446\u0438\u0438. \u0412\u0441\u0435 \u0433\u0440\u0443\u043F\u043F\u044B \u0438 \u0442\u0443\u0440\u043D\u0438\u0440\u043D\u044B\u0435 \u0441\u0435\u0442\u043A\u0438 \u0441\u0444\u043E\u0440\u043C\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u0438 \u0443\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u044B. \u0414\u043E \u0432\u0441\u0442\u0440\u0435\u0447\u0438 \u043D\u0430 \u0444\u0443\u0442\u0431\u043E\u043B\u044C\u043D\u044B\u0445 \u043F\u043E\u043B\u044F\u0445!`,
-        createdAt: Date.now(),
-        timeLabel: "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E",
-        views: 24e3,
-        forwards: 310,
-        reactions: { "\u{1F44F}": 420, "\u{1F44D}": 380, "\u{1F91D}": 190 },
-        comments: [],
-        isHot: false
-      };
-      if (!db.insiderPosts) db.insiderPosts = getInitialInsiderPosts();
-      db.insiderPosts.unshift(finishNotice);
-      if (db.insiderPosts.length > 120) db.insiderPosts.length = 120;
     } catch (err) {
     }
   }
@@ -14759,17 +14523,6 @@ app.post("/api/draw/tg-event", (req, res) => {
   const { type, payload } = req.body || {};
   if (!type || !payload) return res.json({ ok: 1 });
   const appUrl = (process.env.APP_URL || db.settings?.siteUrl || "http://localhost:3000").replace(/\/+$/, "");
-  let createdPost = null;
-  try {
-    if (!db.insiderPosts) db.insiderPosts = getInitialInsiderPosts();
-    createdPost = generateDrawInsiderPost(db, type, payload);
-    if (createdPost) {
-      db.insiderPosts.unshift(createdPost);
-      if (db.insiderPosts.length > 120) db.insiderPosts.length = 120;
-    }
-  } catch (err) {
-    console.error("[Draw Insider Post Error]:", err);
-  }
   if (db.liveDraw) {
     db.liveDraw.viewers = getDrawRealViewersCount();
   }
@@ -14811,7 +14564,7 @@ ${appUrl}/#/fixtures/cup`);
   } catch (e) {
     console.error("[Draw Telegram Send Error]:", e);
   }
-  res.json({ ok: 1, post: createdPost, viewers: db.liveDraw?.viewers || 184500 });
+  res.json({ ok: 1, viewers: db.liveDraw?.viewers || 184500 });
 });
 app.post("/api/admin/draw/apply-cup-rpl", admin, (req, res) => {
   const { groups } = req.body;
@@ -16297,232 +16050,6 @@ app.post("/api/club/scout-request", admin, needClub, async (req, res) => {
 });
 app.get("/api/foreign-offers", (req, res) => {
   res.json(db.foreignOffers || []);
-});
-app.get("/api/insider/channels", (req, res) => {
-  res.json(Object.values(TELEGRAM_CHANNELS));
-});
-app.get("/api/insider/posts", (req, res) => {
-  let list = db.insiderPosts || [];
-  const channel = req.query.channel ? String(req.query.channel) : "";
-  const tag = req.query.tag ? String(req.query.tag) : "";
-  const q2 = req.query.q ? String(req.query.q).toLowerCase() : "";
-  if (channel && channel !== "all") {
-    list = list.filter((p) => p.channelId === channel);
-  }
-  if (tag && tag !== "all") {
-    list = list.filter((p) => p.tag === tag);
-  }
-  if (q2) {
-    list = list.filter(
-      (p) => (p.title || "").toLowerCase().includes(q2) || (p.content || "").toLowerCase().includes(q2) || (p.channelName || "").toLowerCase().includes(q2)
-    );
-  }
-  const now = Date.now();
-  const result = list.map((p) => {
-    const diff = now - (p.createdAt || now);
-    const mins = Math.floor(diff / 6e4);
-    let timeLabel = p.timeLabel || "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E";
-    if (mins < 2) timeLabel = "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E";
-    else if (mins < 60) timeLabel = `${mins} \u043C\u0438\u043D \u043D\u0430\u0437\u0430\u0434`;
-    else if (mins < 1440) timeLabel = `${Math.floor(mins / 60)} \u0447 \u043D\u0430\u0437\u0430\u0434`;
-    else timeLabel = `${Math.floor(mins / 1440)} \u0434 \u043D\u0430\u0437\u0430\u0434`;
-    return { ...p, timeLabel };
-  });
-  res.json(result);
-});
-app.post("/api/insider/reaction", (req, res) => {
-  const { postId, reaction } = req.body;
-  if (!postId || !reaction) return fail(res, "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0440\u0435\u0430\u043A\u0446\u0438\u0438");
-  const post = (db.insiderPosts || []).find((p) => p.id === postId);
-  if (!post) return fail(res, "\u041F\u043E\u0441\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D");
-  if (!post.reactions) post.reactions = {};
-  post.reactions[reaction] = (post.reactions[reaction] || 0) + 1;
-  save();
-  res.json({ ok: 1, reactions: post.reactions });
-});
-app.post("/api/insider/comment", (req, res) => {
-  const { postId, text } = req.body;
-  if (!postId || !text || !text.trim()) return fail(res, "\u0422\u0435\u043A\u0441\u0442 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u044F \u043F\u0443\u0441\u0442");
-  const post = (db.insiderPosts || []).find((p) => p.id === postId);
-  if (!post) return fail(res, "\u041F\u043E\u0441\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D");
-  if (!Array.isArray(post.comments)) post.comments = [];
-  let author = req.body.author || "\u0411\u043E\u043B\u0435\u043B\u044C\u0449\u0438\u043A";
-  let clubBadge = req.body.clubBadge || "";
-  if (req.me?.role === "admin") {
-    author = "\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u041B\u0438\u0433\u0438";
-  } else if (req.me?.role === "club") {
-    author = req.me.teamName || (req.me.teamId ? tn(req.me.teamId) : null) || "\u041F\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u0438\u0442\u0435\u043B\u044C \u043A\u043B\u0443\u0431\u0430";
-    clubBadge = req.me.teamName || (req.me.teamId ? tn(req.me.teamId) : null) || "";
-  }
-  const newComment = {
-    id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    author,
-    clubBadge,
-    text: text.trim().slice(0, 500),
-    time: "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E",
-    likes: 0
-  };
-  post.comments.push(newComment);
-  save();
-  res.json({ ok: 1, comment: newComment, comments: post.comments });
-});
-app.post("/api/insider/generate-ai", async (req, res) => {
-  try {
-    const { channelId, topic, customPrompt, teamName } = req.body;
-    const post = await generateAIInsiderPost(db, {
-      channelId,
-      topic,
-      customPrompt,
-      teamName
-    });
-    if (!Array.isArray(db.insiderPosts)) db.insiderPosts = [];
-    db.insiderPosts.unshift(post);
-    if (db.insiderPosts.length > 80) db.insiderPosts.pop();
-    save();
-    res.json({ ok: 1, post });
-  } catch (err) {
-    fail(res, err.message || "\u041E\u0448\u0438\u0431\u043A\u0430 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u0438\u043D\u0441\u0430\u0439\u0434\u0430 \u0418\u0418");
-  }
-});
-app.post("/api/insider/random-drop", (req, res) => {
-  try {
-    const post = generateRandomInsiderDrop(db);
-    if (!Array.isArray(db.insiderPosts)) db.insiderPosts = [];
-    db.insiderPosts.unshift(post);
-    if (db.insiderPosts.length > 80) db.insiderPosts.pop();
-    save();
-    res.json({ ok: 1, post });
-  } catch (err) {
-    fail(res, err.message || "\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u0431\u0440\u043E\u0441\u0430 \u0438\u043D\u0441\u0430\u0439\u0434\u0430");
-  }
-});
-app.post("/api/insider/create", admin, (req, res) => {
-  try {
-    const { channelId, title, content, tag } = req.body;
-    if (!channelId || !content) return fail(res, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u043B\u044F");
-    const ch = TELEGRAM_CHANNELS[channelId] || TELEGRAM_CHANNELS.karp;
-    const post = {
-      id: `post_manual_${Date.now()}`,
-      channelId: ch.id,
-      channelName: ch.name,
-      channelHandle: ch.handle,
-      avatarBg: ch.avatarBg,
-      avatarIcon: ch.avatarIcon,
-      tag: tag || "\u0418\u043D\u0441\u0430\u0439\u0434",
-      tagColor: ch.id === "spartak" ? "#dc2626" : ch.id === "nobel" ? "#9333ea" : "#ea580c",
-      title: title || "",
-      content: content.replace(/\n/g, "<br>"),
-      createdAt: Date.now(),
-      timeLabel: "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E",
-      views: Math.floor(5e3 + Math.random() * 8e3),
-      forwards: Math.floor(50 + Math.random() * 150),
-      reactions: { "\u{1F525}": 120, "\u{1F44D}": 90, "\u{1F44F}": 45 },
-      comments: [],
-      isHot: true
-    };
-    if (!Array.isArray(db.insiderPosts)) db.insiderPosts = [];
-    db.insiderPosts.unshift(post);
-    save();
-    res.json({ ok: 1, post });
-  } catch (err) {
-    fail(res, err.message);
-  }
-});
-app.get("/api/esk/cases", (req, res) => {
-  let list = db.eskCases || [];
-  const status = req.query.status ? String(req.query.status) : "";
-  if (status && status !== "all") {
-    list = list.filter((c) => c.status === status);
-  }
-  res.json(list);
-});
-app.get("/api/esk/case/:id", (req, res) => {
-  const c = (db.eskCases || []).find((x) => x.id === req.params.id);
-  if (!c) return fail(res, "\u0414\u0435\u043B\u043E \u042D\u0421\u041A \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E");
-  res.json(c);
-});
-app.post("/api/esk/resolve", (req, res) => {
-  try {
-    const { caseId, verdict, comment, adminName } = req.body;
-    if (!caseId || !verdict) return fail(res, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043D\u043E\u043C\u0435\u0440 \u0434\u0435\u043B\u0430 \u0438 \u0432\u0435\u0440\u0434\u0438\u043A\u0442");
-    if (!["correct", "incorrect", "disputable"].includes(verdict)) {
-      return fail(res, "\u041D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B\u0439 \u0432\u0435\u0440\u0434\u0438\u043A\u0442");
-    }
-    const name = adminName || (req.me?.role === "admin" ? "\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u042D\u0421\u041A" : "\u041F\u0440\u0435\u0434\u0441\u0435\u0434\u0430\u0442\u0435\u043B\u044C \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u0438");
-    const result = resolveEskCase(db, caseId, verdict, comment, name);
-    reconcileRefereeStats();
-    save();
-    res.json({ ok: 1, ...result });
-  } catch (err) {
-    fail(res, err.message || "\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u044B\u043D\u0435\u0441\u0435\u043D\u0438\u044F \u0432\u0435\u0440\u0434\u0438\u043A\u0442\u0430 \u042D\u0421\u041A");
-  }
-});
-app.post("/api/esk/ai-analysis", async (req, res) => {
-  try {
-    const { caseId } = req.body;
-    if (!caseId) return fail(res, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043D\u043E\u043C\u0435\u0440 \u0434\u0435\u043B\u0430");
-    const analysis = await generateAIEskAnalysis(db, caseId);
-    res.json({ ok: 1, analysis });
-  } catch (err) {
-    fail(res, err.message || "\u041E\u0448\u0438\u0431\u043A\u0430 \u0418\u0418-\u0430\u043D\u0430\u043B\u0438\u0437\u0430 \u044D\u043F\u0438\u0437\u043E\u0434\u0430");
-  }
-});
-app.post("/api/esk/create-complaint", (req, res) => {
-  try {
-    const { matchId, minute, episodeType, applicantClub, complaint } = req.body;
-    if (!matchId || !applicantClub || !complaint) {
-      return fail(res, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043C\u0430\u0442\u0447\u0430 \u0438 \u0436\u0430\u043B\u043E\u0431\u044B");
-    }
-    const f = (db.fixtures || []).find((x) => x.id === matchId);
-    const HName = f ? f.homeName || tn(f.home) || f.home : "\u0425\u043E\u0437\u044F\u0435\u0432\u0430";
-    const AName = f ? f.awayName || tn(f.away) || f.away : "\u0413\u043E\u0441\u0442\u0438";
-    const num = (db.eskCases?.length || 0) + 1;
-    const newCase = {
-      id: `esk_manual_${Date.now()}`,
-      protocolNum: `\u2116 ${25 + num}-\u042D\u0421\u041A/2026`,
-      date: f?.date || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-      tour: f?.round ? `${f.round} \u0442\u0443\u0440` : "\u041A\u0443\u0431\u043E\u043A",
-      comp: f?.comp || "rpl",
-      matchId,
-      homeTeam: HName,
-      awayTeam: AName,
-      homeScore: f?.hg ?? 0,
-      awayScore: f?.ag ?? 0,
-      minute: minute ? `${minute}'` : "75'",
-      episodeType: episodeType || "penalty",
-      episodeTitle: episodeType === "penalty" ? `\u041D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 11-\u043C\u0435\u0442\u0440\u043E\u0432\u043E\u0433\u043E \u0443\u0434\u0430\u0440\u0430 \u0432 \u043C\u0430\u0442\u0447\u0435 \xAB${HName}\xBB \u2014 \xAB${AName}\xBB` : episodeType === "red_card" ? `\u041F\u0440\u044F\u043C\u043E\u0435 \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u0438\u0433\u0440\u043E\u043A\u0430 \u0424\u041A \xAB${applicantClub}\xBB` : `\u0421\u043F\u043E\u0440\u043D\u044B\u0439 \u044D\u043F\u0438\u0437\u043E\u0434 \u0432 \u043C\u0430\u0442\u0447\u0435 \xAB${HName}\xBB \u2014 \xAB${AName}\xBB`,
-      applicantClub,
-      applicantComplaint: complaint,
-      refereeName: f?.refereeName || "\u0421\u0435\u0440\u0433\u0435\u0439 \u041A\u0430\u0440\u0430\u0441\u0451\u0432",
-      varRefereeName: f?.varReferee || "\u041F\u0430\u0432\u0435\u043B \u041A\u0443\u043A\u0443\u044F\u043D",
-      status: "pending",
-      varSimulation: {
-        cameraAngle: "\u041A\u0430\u043C\u0435\u0440\u0430 2 (\u0428\u0442\u0440\u0430\u0444\u043D\u0430\u044F \u043F\u043B\u043E\u0449\u0430\u0434\u044C, 16-\u043C\u0435\u0442\u0440\u043E\u0432\u0430\u044F \u043B\u0438\u043D\u0438\u044F)",
-        stopFrameTime: `${minute || "74"}:30.00`,
-        varLinesApplied: true,
-        infringementArea: "\u0417\u043E\u043D\u0430 \u0435\u0434\u0438\u043D\u043E\u0431\u043E\u0440\u0441\u0442\u0432\u0430",
-        refereeMicTranscript: [
-          { speaker: "\u0413\u043B\u0430\u0432\u043D\u044B\u0439 \u0441\u0443\u0434\u044C\u044F", text: "\u0417\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043B \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0435 \u0432 \u0434\u0438\u043D\u0430\u043C\u0438\u043A\u0435!" },
-          { speaker: "VAR-\u0446\u0435\u043D\u0442\u0440", text: "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u0444\u0430\u0437\u0443 \u0430\u0442\u0430\u043A\u0438 \u0438 \u043A\u043E\u043D\u0442\u0430\u043A\u0442. \u0420\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0443\u0435\u043C \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u044D\u043F\u0438\u0437\u043E\u0434 \u043D\u0430 \u0437\u0430\u0441\u0435\u0434\u0430\u043D\u0438\u0438 \u042D\u0421\u041A." }
-        ]
-      },
-      hearing: {
-        chairman: "\u041C\u0438\u043B\u043E\u0440\u0430\u0434 \u041C\u0430\u0436\u0438\u0447",
-        votingBoard: [
-          { name: "\u041C\u0438\u043B\u043E\u0440\u0430\u0434 \u041C\u0430\u0436\u0438\u0447", role: "\u0420\u0443\u043A\u043E\u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044C \u0414\u0435\u043F\u0430\u0440\u0442\u0430\u043C\u0435\u043D\u0442\u0430 \u0441\u0443\u0434\u0435\u0439\u0441\u0442\u0432\u0430", vote: "incorrect", comment: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u0442\u0449\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0440\u0430\u0437\u0431\u043E\u0440 \u043D\u0430 \u0437\u0430\u0441\u0435\u0434\u0430\u043D\u0438\u0438." },
-          { name: "\u0420\u0430\u0432\u0448\u0430\u043D \u0418\u0440\u043C\u0430\u0442\u043E\u0432", role: "\u0418\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440 \u0424\u0418\u0424\u0410", vote: "disputable", comment: "\u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0439 \u043C\u043E\u043C\u0435\u043D\u0442 \u0441 \u0442\u043E\u0447\u043A\u0438 \u0437\u0440\u0435\u043D\u0438\u044F \u0442\u0440\u0430\u043A\u0442\u043E\u0432\u043E\u043A \u0418\u0424\u0410\u0411." },
-          { name: "\u041D\u0438\u043A\u043E\u043B\u0430\u0439 \u0418\u0432\u0430\u043D\u043E\u0432", role: "\u0427\u043B\u0435\u043D \u042D\u0421\u041A", vote: "correct", comment: "\u0421\u0443\u0434\u044C\u044F \u043A\u043E\u043D\u0442\u0440\u043E\u043B\u0438\u0440\u043E\u0432\u0430\u043B \u0440\u0430\u0437\u0432\u0438\u0442\u0438\u0435 \u044D\u043F\u0438\u0437\u043E\u0434\u0430." },
-          { name: "\u0421\u0435\u0440\u0433\u0435\u0439 \u0417\u0443\u0435\u0432", role: "\u042D\u043A\u0441-\u0430\u0440\u0431\u0438\u0442\u0440 \u0424\u0418\u0424\u0410", vote: "incorrect", comment: "\u0421\u0442\u0435\u043F\u0435\u043D\u044C \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u0430 \u043F\u0440\u0435\u0443\u0432\u0435\u043B\u0438\u0447\u0435\u043D\u0430 \u0438\u0433\u0440\u043E\u043A\u043E\u043C." }
-        ]
-      }
-    };
-    if (!Array.isArray(db.eskCases)) db.eskCases = [];
-    db.eskCases.unshift(newCase);
-    save();
-    res.json({ ok: 1, eskCase: newCase });
-  } catch (err) {
-    fail(res, err.message);
-  }
 });
 app.post("/api/club/squad/nation", needClub, (req, res) => {
   const p = player(req.body.playerId);
@@ -18196,8 +17723,6 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
     const evalStats = roleInMatch === "head" && stored?.matchRating !== void 0
       ? stored
       : computeRefereeMatchEval(f, matchObj?.events || [], matchObj, stored);
-    const eskList = getFixtureEskCases(f);
-    const eskCase = eskList[0] || null;
     const yc = evalStats.yc || 0;
     const rc = evalStats.rc || 0;
     const penCount = evalStats.pen || 0;
@@ -18205,9 +17730,6 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
     const refErr = evalStats.refErr || 0;
     const varChecks = evalStats.varChecks || 0;
     const varOverturns = evalStats.varOverturns || 0;
-    const eskIncorrect = evalStats.eskIncorrect || 0;
-    const eskDisputable = evalStats.eskDisputable || 0;
-    const eskCorrect = evalStats.eskCorrect || 0;
     const baseGrade = evalStats.baseGrade ?? (tierInfo.tier === "top" ? 8.05 : tierInfo.tier === "weak" ? 7.8 : 7.9);
     const controlDelta = evalStats.controlDelta ?? evalStats.disciplineDelta ?? 0;
     const keyDecisionBonus = evalStats.keyDecisionBonus ?? evalStats.topBonus ?? 0;
@@ -18248,9 +17770,6 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
       refErr,
       varChecks,
       varOverturns,
-      eskIncorrect,
-      eskDisputable,
-      eskCorrect,
       baseGrade,
       controlDelta,
       keyDecisionBonus,
@@ -18258,13 +17777,7 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
       errorDelta,
       aiEval,
       aiAdjustment,
-      matchRating,
-      esk: eskCase ? {
-        id: eskCase.id,
-        status: eskCase.status,
-        verdict: eskCase.verdict || eskCase.hearing?.verdict || null,
-        verdictSummary: eskCase.officialComment || eskCase.hearing?.verdictSummary || null
-      } : null
+      matchRating
     });
   }
   history.sort((a, b) => {
@@ -18290,25 +17803,25 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
         ? `Рабочий контактный матч (${h.yc} ЖК, ${h.fouls} фолов) — +0.05.`
         : `Много карточек или потеря ритма (${h.yc} ЖК, ${h.fouls} фолов) — ${h.controlDelta.toFixed(2)}.`;
     const keyReason = h.keyDecisionBonus > 0
-      ? `Сложные ключевые решения (${h.rc ? `${h.rc} КК` : ""}${h.rc && h.penCount ? ", " : ""}${h.penCount ? `${h.penCount} пен.` : ""}${h.eskCorrect ? `${h.rc || h.penCount ? ", " : ""}подтверждено ЭСК` : ""}) приняты уверенно и без ошибок — +${h.keyDecisionBonus.toFixed(2)}.`
+      ? `Сложные ключевые решения (${h.rc ? `${h.rc} КК` : ""}${h.rc && h.penCount ? ", " : ""}${h.penCount ? `${h.penCount} пен.` : ""}) приняты уверенно и без ошибок — +${h.keyDecisionBonus.toFixed(2)}.`
       : (h.rc > 0 || h.penCount > 0)
         ? `Были ключевые решения (${h.rc} КК, ${h.penCount} пен.), но с замечаниями по протоколу/VAR — +0.00.`
-        : `Решающих эпизодов (КК/пенальти) без ошибок или вердиктов ЭСК в матче не было — +0.00.`;
+        : `Решающих эпизодов (КК/пенальти) без ошибок в матче не было — +0.00.`;
     const varReason = h.varOverturns > 0
       ? `VAR поправлял решения арбитра в поле (${h.varOverturns} пересмотр(а)) — ${h.varDelta.toFixed(2)}.`
       : h.varChecks > 0 && h.refErr === 0
         ? `Проверок VAR: ${h.varChecks}, все решения арбитра в поле подтверждены — +0.05.`
         : `Вмешательств VAR не потребовалось — +0.00.`;
     const errReason = h.errorDelta < 0
-      ? `Ошибки в протоколе (${h.refErr}) / ЭСК (${h.eskIncorrect} неверн., ${h.eskDisputable} спорн.) — ${h.errorDelta.toFixed(2)}.`
-      : `Грубых ошибок в протоколе и ЭСК не зафиксировано — 0.00.`;
+      ? `Ошибки в протоколе (${h.refErr}) — ${h.errorDelta.toFixed(2)}.`
+      : `Грубых ошибок в протоколе не зафиксировано — 0.00.`;
 
     h.ratingFactors = [
       { key: "base", label: "База по статусу матча", delta: Number(h.baseGrade || 7.9), isBase: true, reason: baseReason },
       { key: "control", label: "Управление игрой и темп", delta: Number(h.controlDelta || 0), reason: ctrlReason },
-      { key: "key", label: "Ключевые решения (КК/пен./ЭСК)", delta: Number(h.keyDecisionBonus || 0), reason: keyReason },
+      { key: "key", label: "Ключевые решения (КК/пенальти)", delta: Number(h.keyDecisionBonus || 0), reason: keyReason },
       { key: "var", label: "Взаимодействие с VAR", delta: Number(h.varDelta || 0), reason: varReason },
-      { key: "errors", label: "Ошибки арбитра и ЭСК", delta: Number(h.errorDelta || 0), reason: errReason }
+      { key: "errors", label: "Ошибки арбитра", delta: Number(h.errorDelta || 0), reason: errReason }
     ];
     if (h.aiEval) {
       h.ratingFactors.push({
@@ -18341,7 +17854,7 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
       avgFouls: avg("fouls"),
       avgErrors: avg("refErr"),
       avgRating: n ? +(list.reduce((s, x) => s + (Number(x.matchRating) || 0), 0) / n).toFixed(2) : 0,
-      cleanCount: list.filter((x) => (x.refErr || 0) === 0 && (x.eskIncorrect || 0) === 0 && (x.varOverturns || 0) === 0).length
+      cleanCount: list.filter((x) => (x.refErr || 0) === 0 && (x.varOverturns || 0) === 0).length
     };
   };
   const topStats = aggTier("top");
@@ -18402,10 +17915,10 @@ app.get("/api/admin/referee/:id/details", admin, (req, res) => {
       },
       formulaRules: [
         "Сезонный рейтинг арбитра = среднее арифметическое его оценок за все проведённые матчи в роли главного судьи (пока матчей 0 — рейтинг 0.00).",
-        "Каждый матч оценивается отдельно в диапазоне 5.00–9.50: база (7.80 рядовой / 7.90 обычный / 8.05 топовый) + управление игрой + ключевые решения + VAR − ошибки/ЭСК, в сочетании с оценкой ИИ-инспектора матча (55% ИИ + 45% протокол).",
+        "Каждый матч оценивается отдельно в диапазоне 5.00–9.50: база (7.80 рядовой / 7.90 обычный / 8.05 топовый) + управление игрой + ключевые решения + VAR − ошибки, в сочетании с оценкой ИИ-инспектора матча (55% ИИ + 45% протокол).",
         "Заслуженные красные карточки и точные пенальти НЕ штрафуются — наоборот, точные ключевые решения без ошибок и пересмотров VAR дают +0.15.",
         "Пересмотр решения через VAR снижает оценку (−0.25 за пересмотр), подтверждение VAR без ошибок даёт +0.05.",
-        "Зафиксированная судейская ошибка (ref_error) или признанная ошибка по вердикту ЭСК снижает оценку матча на 0.85 балла.",
+        "Зафиксированная судейская ошибка (ref_error) снижает оценку матча на 0.85 балла.",
         "Матчи в роли VAR, AVAR и резервного судьи учитываются отдельно в статистике бригад и не размывают оценку работы главным арбитром в поле."
       ]
     },
@@ -21169,17 +20682,6 @@ async function startServer() {
     } else {
       console.log(`\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u043A\u043B\u044E\u0447\u0435\u0439 \u043D\u0435\u0439\u0440\u043E\u0441\u0435\u0442\u0438: ${activeProvs.length} (\u043C\u043E\u0434\u0435\u043B\u044C Gemini: ${activeProvs.find((x) => x.n === "gemini")?.model || "—"})`);
     }
-    setInterval(() => {
-      try {
-        if (db && Array.isArray(db.insiderPosts)) {
-          const drop = generateRandomInsiderDrop(db);
-          db.insiderPosts.unshift(drop);
-          if (db.insiderPosts.length > 80) db.insiderPosts.pop();
-          save();
-        }
-      } catch (e) {
-      }
-    }, 18e4);
   });
 }
 if (process.env.NODE_ENV !== "test") {

@@ -116720,7 +116720,7 @@
       "gameTime": "17:30",
       "stadium": "Стадион «Нижний Новгород» (нейтральное поле, г. Нижний Новгород)",
       "city": "Нижний Новгород",
-      "status": "live",
+      "status": "scheduled",
       "hg": 1,
       "ag": 1,
       "neutralField": true,
@@ -116741,9 +116741,9 @@
         "pitch": "газон в отличном состоянии"
       },
       "err": "",
-      "_genToken": "57090e55fd",
-      "_ownerId": "e47d00f90fc1_663",
-      "_ownerAt": 1794985329512,
+      "_genToken": null,
+      "_ownerId": null,
+      "_ownerAt": 0,
       "aiCalls": 2,
       "hold": null,
       "autoRetries": 0,
@@ -175793,7 +175793,7 @@
   ],
   "derbies": [
     {
-      "id": "52b5cde553",
+      "id": "1586367ee9",
       "a": "605409acc5",
       "b": "b459009212",
       "name": "Дерби всея Руси",
@@ -175801,7 +175801,7 @@
       "principled": false
     },
     {
-      "id": "778429beec",
+      "id": "bc23462e86",
       "a": "605409acc5",
       "b": "87628bf185",
       "name": "Битва двух столиц",
@@ -175809,7 +175809,7 @@
       "principled": false
     },
     {
-      "id": "db1f5578fe",
+      "id": "1c965c1639",
       "a": "605409acc5",
       "b": "b9b38696b1",
       "name": "Московское дерби",
@@ -175817,7 +175817,7 @@
       "principled": false
     },
     {
-      "id": "865fe8348c",
+      "id": "0c90616533",
       "a": "ec371266ce",
       "b": "87628bf185",
       "name": "Принципиальное противостояние",
@@ -175825,7 +175825,7 @@
       "principled": false
     },
     {
-      "id": "dd53ef40ab",
+      "id": "42fb825cff",
       "a": "605409acc5",
       "b": "8e1e2eb19d",
       "name": "Московское дерби",
@@ -175833,7 +175833,7 @@
       "principled": false
     },
     {
-      "id": "9b26bd9376",
+      "id": "c03094eb03",
       "a": "b459009212",
       "b": "b9b38696b1",
       "name": "Братское дерби",
@@ -175841,7 +175841,7 @@
       "principled": false
     },
     {
-      "id": "80c24ff232",
+      "id": "eff0310992",
       "a": "b459009212",
       "b": "8e1e2eb19d",
       "name": "Московское дерби",
@@ -175849,7 +175849,7 @@
       "principled": false
     },
     {
-      "id": "4b57e8e54d",
+      "id": "aa9cd0b100",
       "a": "b9b38696b1",
       "b": "8e1e2eb19d",
       "name": "Московское дерби",
@@ -175857,7 +175857,7 @@
       "principled": false
     },
     {
-      "id": "c521b43577",
+      "id": "25e4fea835",
       "a": "87628bf185",
       "b": "b459009212",
       "name": "Принципиальное противостояние",
@@ -175865,7 +175865,7 @@
       "principled": false
     },
     {
-      "id": "1c3ca4b6cd",
+      "id": "b23b63e259",
       "a": "ec371266ce",
       "b": "b459009212",
       "name": "Новая классика",
@@ -175873,7 +175873,7 @@
       "principled": false
     },
     {
-      "id": "736f648660",
+      "id": "4b25ace58f",
       "a": "b9b38696b1",
       "b": "ec371266ce",
       "name": "Принципиальное противостояние",
@@ -175881,7 +175881,7 @@
       "principled": false
     },
     {
-      "id": "99ff995a91",
+      "id": "04f85475a1",
       "a": "f01f623343",
       "b": "87628bf185",
       "name": "Прибалтийское дерби",
@@ -175889,7 +175889,7 @@
       "principled": false
     },
     {
-      "id": "0e34af22e0",
+      "id": "0ac7653e16",
       "a": "86a391ae5f",
       "b": "801cffa209",
       "name": "Битва Самары",
@@ -175897,7 +175897,7 @@
       "principled": true
     },
     {
-      "id": "84365688bf",
+      "id": "f48a548415",
       "a": "84394543c8",
       "b": "86a391ae5f",
       "name": "Волжское противостояние",
@@ -175905,7 +175905,7 @@
       "principled": true
     },
     {
-      "id": "a447cc9db4",
+      "id": "9071435fc7",
       "a": "8cbf573c80",
       "b": "ec371266ce",
       "name": "Южное противостояние",
@@ -175913,7 +175913,7 @@
       "principled": true
     },
     {
-      "id": "b9fb761abf",
+      "id": "52896a5e2f",
       "a": "2546d02172",
       "b": "9e5a4acb81",
       "name": "Кавказское противостояние",
@@ -275656,72 +275656,7 @@
   "staffOffers": [],
   "staffRoles": [],
   "friendlyRequests": [],
-  "_savedAt": 1794985329763,
-  "insiderPosts": [
-    {
-      "id": "insider_1794513771194",
-      "channelId": "karp",
-      "channelName": "Инсайды от Карпа",
-      "channelHandle": "@karpinside",
-      "avatarBg": "#ea580c",
-      "avatarIcon": "💣",
-      "title": "⚡ Новый инсайд из штаба лидеров РПЛ",
-      "text": "Тренерский штаб планирует тактические перестановки на следующий ключевой тур.",
-      "tag": "Инсайд",
-      "tagColor": "#ea580c",
-      "time": "20:02",
-      "likes": 46,
-      "isHot": true
-    },
-    {
-      "id": "insider_init_1",
-      "channelId": "karp",
-      "channelName": "Инсайды от Карпа",
-      "channelHandle": "@karpinside",
-      "avatarBg": "#ea580c",
-      "avatarIcon": "💣",
-      "title": "🔥 Жара на трансферном рынке перед закрытием окна!",
-      "text": "Клубы РПЛ готовят сразу несколько громких переходов. Ведутся переговоры по подписанию латиноамериканских талантов.",
-      "tag": "Трансферы",
-      "tagColor": "#ea580c",
-      "time": "12:00",
-      "likes": 142,
-      "isHot": true
-    },
-    {
-      "id": "insider_init_2",
-      "channelId": "rfs",
-      "channelName": "Пресс-служба РФС",
-      "channelHandle": "@rfsru_official",
-      "avatarBg": "#1e3a8a",
-      "avatarIcon": "🇷🇺",
-      "title": "📋 Разъяснение судейского комитета по последним турам",
-      "text": "Все спорные моменты в штрафной площади оперативно направляются на экспертизу ЭСК РФС.",
-      "tag": "Судейство",
-      "tagColor": "#0284c7",
-      "time": "14:30",
-      "likes": 89,
-      "isHot": false
-    }
-  ],
-  "eskCases": [
-    {
-      "id": "esk_init_1",
-      "episode": "Падение в штрафной площади на 84-й минуте матча",
-      "referee": "Сергей Карасев",
-      "varReferee": "Павел Кукуян",
-      "clubClaimant": "Спартак",
-      "status": "resolved",
-      "verdict": "correct",
-      "officialComment": "Судья правильно продолжил игру, контакт был естественным игровым единоборством.",
-      "voting": {
-        "supportReferee": 6,
-        "againstReferee": 1,
-        "membersTotal": 7
-      },
-      "createdAt": "2026-08-01"
-    }
-  ],
+  "_savedAt": 1795011810201,
   "nationalTeam": {
     "current": {
       "title": "Ближайшая пауза на матчи сборных",
