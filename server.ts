@@ -270,6 +270,7 @@ import {
   getAdsgramBlocks,
   getFriendlyBreakUsage,
   getNationalProposals,
+  linkTelegramToClub,
   registerAdsAndPredictionsRoutes,
   resolveActor,
   scoreNationalCandidateWithVotes,
@@ -11132,6 +11133,20 @@ function finish(id) {
   if ((f.comp === "cup" || f.comp === "supercup") && f.hg === f.ag && !f.pen) f.pen = shootout(f);
   checkPlayoffShootout(f);
   f.status = "done";
+  if (Array.isArray(m.events) && m.events.length > 0) {
+    let htH = 0, htA = 0;
+    const hasHtMarker = m.events.some((ev: any) => ev.type === "halftime");
+    for (const ev of m.events) {
+      if (ev.type === "halftime") break;
+      if (!hasHtMarker && Number(ev.min || 0) > 45) break;
+      if (ev.type === "goal" || ev.type === "own_goal") {
+        if (ev.team === "home") htH++;
+        else if (ev.team === "away") htA++;
+      }
+    }
+    f.ht = [htH, htA];
+    f.lateGoal75 = m.events.some((ev: any) => (ev.type === "goal" || ev.type === "own_goal") && Number(ev.min || 0) >= 75);
+  }
   settlePredictionsForFixture(getAdsCtx(), f);
   updateRefereeStats(f, m.events, m);
   if (f.comp === "cup") advanceCup();
@@ -13409,6 +13424,9 @@ app.post("/api/login", (req, res) => {
   if (!s) return fail(res, "\u041A\u043E\u0434 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D", 401);
   const token = crypto3.randomBytes(20).toString("hex");
   db.sessions[token] = { ...s, at: Date.now() };
+  if (s.role === "club" && s.teamId) {
+    linkTelegramToClub(getAdsCtx(), s.teamId, req);
+  }
   pgSaveSession(token, db.sessions[token]);
   save();
   res.json({ token, ...s, team: s.teamId ? pubTeam(team(s.teamId)) : null, code: s.code || raw });
@@ -21071,6 +21089,7 @@ function getAdsCtx(): AdServerContext {
     tn,
     teamLogo,
     player,
+    getMatch: (id: string) => getMatch(id),
     uid,
     needClub,
     admin,
